@@ -132,7 +132,7 @@ class Department extends Model
      * @return array
      */
 
-    static function dataTree($data, $id, $level = 0)
+    static function dataTree($data, $id, $level = 0):array
     {
         $result = array();
         foreach ($data as $item) {

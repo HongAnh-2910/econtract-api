@@ -17,7 +17,6 @@ class MemberResource extends JsonResource
      */
     public function toArray($request)
     {
-        $check = $request->route()->getName() == 'member.show';
         return [
             "id" => $this->id,
             "name" => $this->name,
@@ -26,7 +25,7 @@ class MemberResource extends JsonResource
             "provider" => $this->provider,
             "parent_id" => $this->parent_id,
             "active" => Arr::get(StatusIsActive::IS_ACTIVE, $this->active),
-            "department" => $this->when($check ,  DepartmentResource::collection($this->whenLoaded('departments'))[0])
+            "departments" => DepartmentResource::collection($this->whenLoaded('departments'))
         ];
     }
 }

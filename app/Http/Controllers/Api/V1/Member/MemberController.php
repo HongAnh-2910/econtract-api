@@ -8,22 +8,25 @@ use App\Models\Department;
 use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Requests\V1\Member\RegisterRequest;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 
 class MemberController extends Controller
 {
     /**
      * @var User
      */
-    protected $user;
+    protected User $user;
 
     /**
      * @var Department
      */
 
-    protected $department;
+    protected Department $department;
 
     public function __construct(User $user , Department $department)
     {
@@ -32,21 +35,26 @@ class MemberController extends Controller
     }
 
     /**
-     * Display a listing of the resource.
-     *
-     * @return Response
+     * @return AnonymousResourceCollection
      */
-    public function index()
+
+    public function index():AnonymousResourceCollection
     {
-        //
+        $members =  $this->user->with(['departments' => function($query){
+          return $query->whereNull('parent_id')->with('childrenDepartment');
+      }])->where(function ($query){
+           $query->where('parent_id' ,Auth::id());
+      })->paginate();
+
+        return  MemberResource::collection($members);
     }
 
     /**
      * @param  RegisterRequest  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
 
-    public function store(RegisterRequest $request)
+    public function store(RegisterRequest $request):JsonResponse
     {
         $departmentId = $request->input('department_id');
         $query = $this->department->whereIn('id' , $departmentId)->whereNull('parent_id');
@@ -61,6 +69,7 @@ class MemberController extends Controller
         $data         = $query->with('childrenDepartment')->get();
         $departmentId = collect($this->department::dataTree($data, null))->pluck('id');
         $params       = $request->except('department_id', 'password_confirmation');
+        $params['parent_id'] = Auth::id();
         try {
             $user = $this->user->create($params);
             $user->departments()->sync($departmentId);
@@ -91,7 +100,7 @@ class MemberController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        dd('123');
     }
 
     /**
