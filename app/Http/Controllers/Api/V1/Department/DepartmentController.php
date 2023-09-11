@@ -28,11 +28,12 @@ class DepartmentController extends Controller
      * @param IndexDepartmentRequest $request
      * @return AnonymousResourceCollection
      */
-    public function index(IndexDepartmentRequest $request):AnonymousResourceCollection
+    public function index(IndexDepartmentRequest $request)
     {
         $search = $request->input('name');
         $status = $request->input('status');
-        $departments = $this->department->when($status == Status::TRASHED , function ($query){
+        $departments = $this->department->QueryUserDepartment()
+                                        ->when($status == Status::TRASHED , function ($query){
             return $query->onlyTrashed();
         })->with(['user', 'childrenDepartment' => function ($query) {
             return $query->with('parent', 'user');

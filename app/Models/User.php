@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -66,5 +67,14 @@ class User extends Authenticatable
     public function childrenUser():HasMany
     {
         return $this->children()->with('childrenUser');
+    }
+
+    /**
+     * @return BelongsToMany
+     */
+
+    public function departments():BelongsToMany
+    {
+        return $this->belongsToMany(Department::class,'user_department' ,'user_id' ,'department_id' );
     }
 }

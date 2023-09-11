@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class Department extends Model
 {
@@ -25,7 +26,7 @@ class Department extends Model
 
     protected static function booted():void
     {
-        static::addGlobalScope(new GetDataByUserIdScope());
+//        static::addGlobalScope(new GetDataByUserIdScope());
     }
 
     /**
@@ -65,7 +66,7 @@ class Department extends Model
 
     public function childrenDepartment():HasMany
     {
-        return $this->children()->with('childrenDepartment');
+        return $this->children()->with('childrenDepartment')->with('user');
     }
 
     /**
@@ -107,5 +108,43 @@ class Department extends Model
     public function scopeGetIdsDepartment($query , $ids)
     {
         return $query->whereIn('id' , $ids);
+    }
+
+    /**
+     * @param  Builder  $query
+     * @return void
+     */
+
+    public function scopeQueryUserDepartment(Builder $query)
+    {
+        $userIds = Auth::user()->childrenUser->pluck('id')->merge(Auth::id());
+        $query->selectRaw('departments.*')->leftJoin('user_department' ,'departments.id' ,'=' , 'user_department.department_id')
+                ->where(function ($query) use($userIds) {
+                    $query->whereIn('departments.user_id' , $userIds);
+                    $query->orWhere('user_department.user_id' ,Auth::id());
+                });
+    }
+
+    /**
+     * @param $data
+     * @param $id
+     * @param $level
+     * @return array
+     */
+
+    static function dataTree($data, $id, $level = 0)
+    {
+        $result = array();
+        foreach ($data as $item) {
+            if ($item->parent_id == $id) {
+                $item['level'] = $level;
+                $result[]      = $item;
+                $child         = self::dataTree($item->childrenDepartment, $item->id, $level + 1);
+                $result        = array_merge($result, $child);
+            }
+            unset($item);
+        }
+
+        return $result;
     }
 }

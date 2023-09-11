@@ -2,7 +2,8 @@
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Department\DepartmentController;
-use App\Http\Controllers\Api\V1\Menu\MenuController;
+    use App\Http\Controllers\Api\V1\Member\MemberController;
+    use App\Http\Controllers\Api\V1\Menu\MenuController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -33,5 +34,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::get('department/{department}' , [DepartmentController::class ,'show']);
         Route::patch('department/{department}' , [DepartmentController::class ,'update']);
         Route::post('department/update-permission-department' , [DepartmentController::class ,'updatePermissionDepartment']);
+
+        Route::resource('member' , MemberController::class);
     });
 });
