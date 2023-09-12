@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Member;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Member\UpdateMemberRequest;
 use App\Http\Resources\V1\Member\MemberResource;
 use App\Models\Department;
 use App\Models\User;
@@ -10,7 +11,7 @@ use Dotenv\Exception\ValidationException;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Http\Requests\V1\Member\RegisterRequest;
+use App\Http\Requests\V1\Member\RegisterMemberRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -42,19 +43,17 @@ class MemberController extends Controller
     {
         $members =  $this->user->with(['departments' => function($query){
           return $query->whereNull('parent_id')->with('childrenDepartment');
-      }])->where(function ($query){
-           $query->where('parent_id' ,Auth::id());
-      })->paginate();
+      }])->where('parent_id' ,Auth::id())->paginate();
 
         return  MemberResource::collection($members);
     }
 
     /**
-     * @param  RegisterRequest  $request
+     * @param  RegisterMemberRequest  $request
      * @return JsonResponse
      */
 
-    public function store(RegisterRequest $request):JsonResponse
+    public function store(RegisterMemberRequest $request):JsonResponse
     {
         $departmentId = $request->input('department_id');
         $query = $this->department->whereIn('id' , $departmentId)->whereNull('parent_id');
@@ -98,9 +97,34 @@ class MemberController extends Controller
      * @param  int  $id
      * @return Response
      */
-    public function update(Request $request, $id)
+    public function update(UpdateMemberRequest $request, User $user)
     {
-        dd('123');
+       $a = storage_path('uploads/1694492467_hinh-anh-naruto-chat-ngau-dep-820x600.jpg');
+       dd($a);
+        dd(asset('storage/uploads/1694492467_hinh-anh-naruto-chat-ngau-dep-820x600.jpg'));
+        $name          = $request->input('name');
+        $email         = $request->input('email');
+        $password      = $request->input('password');
+        $departmentIds = $request->input('department_id');
+        $active        = $request->input('active');
+//        update
+        $user->name = $name ?? $user->name;
+        $user->email = $email ?? $user->email;
+        $user->password = $password ?? $user->password;
+        $user->active = $active ?? $user->active;
+        if ($request->hasFile('images'))
+        {
+            $file = $request->images;
+            $fileName = time().'_'.$file->getClientOriginalName();
+            $filePath =$file->storeAs('uploads', $fileName, 'public');
+            $user->img_user = $fileName;
+//            $fileModel->name = time().'_'.$req->file->getClientOriginalName();
+//            $fileModel->file_path = '/storage/' . $filePath;
+//            $fileModel->save();
+        }
+        $user->save();
+        return $user;
+
     }
 
     /**

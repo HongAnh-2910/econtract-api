@@ -35,6 +35,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::patch('department/{department}' , [DepartmentController::class ,'update']);
         Route::post('department/update-permission-department' , [DepartmentController::class ,'updatePermissionDepartment']);
 
-        Route::resource('member' , MemberController::class);
+        Route::resource('member' , MemberController::class)->except('update');
+        Route::post('member/{user}' , [MemberController::class ,'update']);
     });
 });

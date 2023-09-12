@@ -6,7 +6,7 @@ use App\Enums\StatusIsActive;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class RegisterRequest extends FormRequest
+class UpdateMemberRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -26,11 +26,14 @@ class RegisterRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'required|min:6',
-            'email' => 'required|unique:users,email|email:rfc,dns',
-            'password' => 'required|min:6|confirmed',
+            'name'          => 'required|min:6',
+            'email'         => ['required',
+                'email:rfc,dns',
+                Rule::unique('users')->ignore($this->user->id)],
+            'password'      => 'nullable|min:6|confirmed',
             'department_id' => 'required|array',
-            'active' => array('required', Rule::in(StatusIsActive::ACTIVE, StatusIsActive::NOT_ACTIVE))
+            'images'        => 'nullable|mimes:jpeg,png,jpg,gif|image',
+            'active'        => array('required', Rule::in(StatusIsActive::ACTIVE, StatusIsActive::NOT_ACTIVE))
         ];
     }
 }

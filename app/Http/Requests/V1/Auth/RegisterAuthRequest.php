@@ -1,10 +1,11 @@
 <?php
 
 namespace App\Http\Requests\V1\Auth;
-
+use App\Enums\StatusIsActive;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class LoginRequest extends FormRequest
+class RegisterAuthRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,8 +25,11 @@ class LoginRequest extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required',
-            'password' => 'required'
+            'name' => 'required|min:6',
+            'email' => 'required|unique:users,email|email:rfc,dns',
+            'password' => 'required|min:6|confirmed',
+            'department_id' => 'nullable|array',
+            'active' => array('required', Rule::in(StatusIsActive::ACTIVE, StatusIsActive::NOT_ACTIVE))
         ];
     }
 }
