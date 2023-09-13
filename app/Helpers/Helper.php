@@ -37,3 +37,38 @@ if (!file_exists('handleRemoveFile'))
          unlink($disk.'/'.$nameFile);
     }
 }
+
+if (!file_exists('checkImgTypeFile'))
+{
+    /**
+     * @param $type
+     * @return string
+     */
+    function checkExtensionFileGetImgType($type):string
+    {
+        $imgType = "";
+//        jpeg,png,jpg,gif,pdf,doc,docx,xls,xlsx
+        switch ($type) {
+            case 'docx':case 'doc':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/word.svg');
+            break;
+            case 'xls':case 'xlsx':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/excel.svg');
+                break;
+            case 'jpeg':case 'png':case 'jpg':case 'gif':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/image_thumb.svg');
+                break;
+            case 'pdf':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/pdf.svg');
+                break;
+            case 'folder':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/group_folder.svg');
+                break;
+            case 'file':
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/file.svg');
+                break;
+        }
+        return $imgType;
+
+    }
+}

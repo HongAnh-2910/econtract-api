@@ -26,6 +26,12 @@ class FolderController extends Controller
      */
     public function index($id = null)
     {
+        if ($id) {
+            $folder = $this->folder->ById($id)->first();
+            if (is_null($folder)) {
+                throw new ValidationException('Folder không tồn tại', 422);
+            }
+        }
         $folder =  $this->folder->where('parent_id' , $id)->paginate();
         return  FolderResource::collection($folder->load('user' , 'parent'));
     }

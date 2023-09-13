@@ -36,8 +36,6 @@ class FileController extends Controller
     public function uploadFileFolder(UploadFileRequest $request , $folderId = null)
     {
         $userShareId = $request->input('user_share_id');
-        $dataFiles = [];
-        $ids = [];
         try {
             if ($request->hasFile('files'))
             {
@@ -46,20 +44,17 @@ class FileController extends Controller
                     $name = $file->getClientOriginalName();
                     $storage = floor((int) $file->getSize() / 1024);
                     $extension = $file->getClientOriginalExtension();
-
-                    $dataFiles[] =  [
-                        'name' => time().$name,
-                        'path' => time().$name,
+                    $this->file->create([
+                        'name' => time().'-'.$name,
+                        'path' => time().'-'.$name,
                         'type' => $extension,
                         'user_id' => Auth::id(),
-                        'parent_id' => null,
+                        'folder_id' => $folderId,
                         'size' => $storage
-                    ];
-//                    handleUploadFile($file ,Storage::path('public/files') ,$name);
-
+                    ]);
+                    handleUploadFile($file ,Storage::path('public/files') ,$name);
                 }
-                $this->file->create(collect($dataFiles));
-                dd($dataFiles);
+              return $this->successResponse(null ,'oke' , 201);
             }
 
         }catch (\Exception $exception)

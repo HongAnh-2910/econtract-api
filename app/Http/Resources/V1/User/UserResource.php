@@ -21,7 +21,7 @@ class UserResource extends JsonResource
             "id"           => $this->id,
             "name"         => $this->name,
             "email"        => $this->email,
-            "img_user"     => asset(config('pathUploadFile.path_avatar_user').'/'.$this->img_user),
+            "img_user"     => $this->img_user?asset(config('pathUploadFile.path_avatar_user').'/'.$this->img_user):null,
             "provider"     => $this->provider,
             "parent_id"    => $this->parent_id,
             "active"       => Arr::get(StatusIsActive::IS_ACTIVE, $this->active),
