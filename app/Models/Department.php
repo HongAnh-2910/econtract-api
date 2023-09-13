@@ -124,27 +124,4 @@ class Department extends Model
                     $query->orWhere('user_department.user_id' ,Auth::id());
                 });
     }
-
-    /**
-     * @param $data
-     * @param $id
-     * @param $level
-     * @return array
-     */
-
-    static function dataTree($data, $id, $level = 0):array
-    {
-        $result = array();
-        foreach ($data as $item) {
-            if ($item->parent_id == $id) {
-                $item['level'] = $level;
-                $result[]      = $item;
-                $child         = self::dataTree($item->childrenDepartment, $item->id, $level + 1);
-                $result        = array_merge($result, $child);
-            }
-            unset($item);
-        }
-
-        return $result;
-    }
 }

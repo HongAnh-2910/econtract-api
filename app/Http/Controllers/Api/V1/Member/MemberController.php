@@ -10,11 +10,11 @@ use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use App\Http\Requests\V1\Member\RegisterMemberRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MemberController extends Controller
 {
@@ -55,18 +55,14 @@ class MemberController extends Controller
 
     public function store(RegisterMemberRequest $request):JsonResponse
     {
-        $departmentId = $request->input('department_id');
-        $query = $this->department->whereIn('id' , $departmentId)->whereNull('parent_id');
-//       $idsUserDepartment = Auth::user()->departments->pluck('id');
-//       $departmentId = $request->input('department_id');
-//       $departmentIdUnique = $idsUserDepartment->merge($departmentId)->unique();
-//       $departments = $this->department->whereIn('id' , $departmentIdUnique)->whereNull('parent_id')->get()->pluck('name');
+        $departmentIds = $request->input('department_id');
+        $query = $this->department->GetIdsDepartment($departmentIds)->whereNull('parent_id');
         $checkDepartment = $query->count();
-        if ($checkDepartment != count($departmentId)) {
+        if ($checkDepartment != count($departmentIds)) {
             throw new ValidationException('Phòng ban không tồn tại', 422);
         }
         $data         = $query->with('childrenDepartment')->get();
-        $departmentId = collect($this->department::dataTree($data, null))->pluck('id');
+        $departmentId = dataTree($data, null ,'childrenDepartment')->pluck('id');
         $params       = $request->except('department_id', 'password_confirmation');
         $params['parent_id'] = Auth::id();
         try {
@@ -91,23 +87,18 @@ class MemberController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param  Request  $request
-     * @param  int  $id
-     * @return Response
+     * @param UpdateMemberRequest $request
+     * @param User $user
+     * @return JsonResponse|void
      */
     public function update(UpdateMemberRequest $request, User $user)
     {
-       $a = storage_path('uploads/1694492467_hinh-anh-naruto-chat-ngau-dep-820x600.jpg');
-       dd($a);
-        dd(asset('storage/uploads/1694492467_hinh-anh-naruto-chat-ngau-dep-820x600.jpg'));
         $name          = $request->input('name');
         $email         = $request->input('email');
         $password      = $request->input('password');
         $departmentIds = $request->input('department_id');
         $active        = $request->input('active');
-//        update
+        try {
         $user->name = $name ?? $user->name;
         $user->email = $email ?? $user->email;
         $user->password = $password ?? $user->password;
@@ -116,15 +107,27 @@ class MemberController extends Controller
         {
             $file = $request->images;
             $fileName = time().'_'.$file->getClientOriginalName();
-            $filePath =$file->storeAs('uploads', $fileName, 'public');
+            handleUploadFile($file ,Storage::path('public/uploads') , $fileName);
+            if (!is_null($user->img_user))
+            {
+                handleRemoveFile(config('pathUploadFile.path_avatar_user') ,$user->img_user);
+            }
             $user->img_user = $fileName;
-//            $fileModel->name = time().'_'.$req->file->getClientOriginalName();
-//            $fileModel->file_path = '/storage/' . $filePath;
-//            $fileModel->save();
         }
         $user->save();
-        return $user;
+        $getDepartmentParent = $this->department->GetIdsDepartment($departmentIds)->whereNull('parent_id')
+            ->with('childrenDepartment')->get();
+        $departmentId = dataTree($getDepartmentParent ,null)->pluck('id');
+        $user->departments()->sync($departmentId);
+        $member = $user->load(['departments' => function($query){
+            return $query->whereNull('parent_id')->with('childrenDepartment');
+        }]);
+        return $this->successResponse(new MemberResource($member), 'success', 201);
 
+        }catch (Exception $exception)
+        {
+            $this->errorResponse('error update member' , 500);
+        }
     }
 
     /**
