@@ -18,15 +18,15 @@ class UserResource extends JsonResource
     {
         $checkNameRoute = $request->route()->getName() == 'register' || $request->route()->getName() == 'login';
         return [
-            "id" => $this->id,
-            "name" => $this->name,
-            "email" => $this->email,
-            "img_user" => $this->img_user,
-            "provider" => $this->provider,
-            "parent_id" => $this->parent_id,
-            "active" => Arr::get(StatusIsActive::IS_ACTIVE, $this->active),
-            "access_token" => $this->when($checkNameRoute,data_get($this ,'access_token')),
-            "token_type" => data_get($this ,'token_type')
+            "id"           => $this->id,
+            "name"         => $this->name,
+            "email"        => $this->email,
+            "img_user"     => asset(config('pathUploadFile.path_avatar_user').'/'.$this->img_user),
+            "provider"     => $this->provider,
+            "parent_id"    => $this->parent_id,
+            "active"       => Arr::get(StatusIsActive::IS_ACTIVE, $this->active),
+            "access_token" => $this->when($checkNameRoute, data_get($this, 'access_token')),
+            "token_type"   => data_get($this, 'token_type')
         ];
     }
 }

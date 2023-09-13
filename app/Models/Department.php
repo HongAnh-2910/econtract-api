@@ -124,4 +124,14 @@ class Department extends Model
                     $query->orWhere('user_department.user_id' ,Auth::id());
                 });
     }
+
+    /**
+     * @param $query
+     * @return mixed
+     */
+
+    public function scopeGetParentAndLoadChildrenDepartment($query)
+    {
+        return $query->whereNull('parent_id')->with('childrenDepartment');
+    }
 }

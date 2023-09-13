@@ -31,7 +31,7 @@ class UpdateMemberRequest extends FormRequest
                 'email:rfc,dns',
                 Rule::unique('users')->ignore($this->user->id)],
             'password'      => 'nullable|min:6|confirmed',
-            'department_id' => 'required|array',
+            'department_id' => 'array',
             'images'        => 'nullable|mimes:jpeg,png,jpg,gif|image',
             'active'        => array('required', Rule::in(StatusIsActive::ACTIVE, StatusIsActive::NOT_ACTIVE))
         ];

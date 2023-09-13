@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Member;
 
+use App\Enums\TypeDelete;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Member\DestroyTypeMemberRequest;
 use App\Http\Requests\V1\Member\UpdateMemberRequest;
 use App\Http\Resources\V1\Member\MemberResource;
 use App\Models\Department;
@@ -42,7 +44,7 @@ class MemberController extends Controller
     public function index():AnonymousResourceCollection
     {
         $members =  $this->user->with(['departments' => function($query){
-          return $query->whereNull('parent_id')->with('childrenDepartment');
+          return $query->GetParentAndLoadChildrenDepartment();
       }])->where('parent_id' ,Auth::id())->paginate();
 
         return  MemberResource::collection($members);
@@ -81,7 +83,7 @@ class MemberController extends Controller
     public function show($id):MemberResource
     {
        $member = $this->user->findOrFail($id)->load(['departments' => function($query){
-           return $query->whereNull('parent_id')->with('childrenDepartment');
+           return $query->GetParentAndLoadChildrenDepartment();
        }]);
        return new MemberResource($member);
     }
@@ -99,45 +101,64 @@ class MemberController extends Controller
         $departmentIds = $request->input('department_id');
         $active        = $request->input('active');
         try {
-        $user->name = $name ?? $user->name;
-        $user->email = $email ?? $user->email;
-        $user->password = $password ?? $user->password;
-        $user->active = $active ?? $user->active;
-        if ($request->hasFile('images'))
-        {
-            $file = $request->images;
-            $fileName = time().'_'.$file->getClientOriginalName();
-            handleUploadFile($file ,Storage::path('public/uploads') , $fileName);
-            if (!is_null($user->img_user))
-            {
-                handleRemoveFile(config('pathUploadFile.path_avatar_user') ,$user->img_user);
+            $user->name     = $name ?? $user->name;
+            $user->email    = $email ?? $user->email;
+            $user->password = $password ?? $user->password;
+            $user->active   = $active ?? $user->active;
+            if ($request->hasFile('images')) {
+                $file     = $request->images;
+                $fileName = time().'_'.$file->getClientOriginalName();
+                handleUploadFile($file, Storage::path('public/uploads'), $fileName);
+                if ( ! is_null($user->img_user)) {
+                    handleRemoveFile(config('pathUploadFile.path_avatar_user'), $user->img_user);
+                }
+                $user->img_user = $fileName;
             }
-            $user->img_user = $fileName;
-        }
-        $user->save();
-        $getDepartmentParent = $this->department->GetIdsDepartment($departmentIds)->whereNull('parent_id')
-            ->with('childrenDepartment')->get();
-        $departmentId = dataTree($getDepartmentParent ,null)->pluck('id');
-        $user->departments()->sync($departmentId);
-        $member = $user->load(['departments' => function($query){
-            return $query->whereNull('parent_id')->with('childrenDepartment');
-        }]);
-        return $this->successResponse(new MemberResource($member), 'success', 201);
+            $user->save();
+            if (!empty($departmentIds))
+            {
+                $getDepartmentParent = $this->department->GetIdsDepartment($departmentIds)
+                                                        ->GetParentAndLoadChildrenDepartment()
+                                                        ->get();
+                $departmentId        = dataTree($getDepartmentParent, null)->pluck('id');
+                $user->departments()->sync($departmentId);
+                $member = $user->load(['departments' => function ($query) {
+                    return $query->GetParentAndLoadChildrenDepartment();
+                }]);
+            }else
+            {
+                $member = $user->load('departmentsOrUser');
+            }
+            return $this->successResponse(new MemberResource($member), 'success', 201);
 
-        }catch (Exception $exception)
-        {
-            $this->errorResponse('error update member' , 500);
+        } catch (Exception $exception) {
+            $this->errorResponse('error update member', 500);
         }
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return Response
+     * @param $id
+     * @param  DestroyTypeMemberRequest  $request
+     * @return JsonResponse
      */
-    public function destroy($id)
+
+    public function destroy($id,DestroyTypeMemberRequest $request)
     {
-        //
+        $type = $request->input('type' , TypeDelete::SOFT_DELETE);
+        $member = $this->user->CheckTrashed($type)->findOrFail($id);
+        if ($type == TypeDelete::SOFT_DELETE)
+        {
+            $member->delete();
+            return $this->successResponse(null, 'oke', 201);
+        }
+        $departmentIds =  $member->departments->pluck('id');
+        try {
+            $member->departments()->detach($departmentIds);
+            $member->forceDelete();
+            return $this->successResponse(null, 'oke', 201);
+        }catch (Exception $exception)
+        {
+            return $this->errorResponse('error delete' ,500);
+        }
     }
 }
