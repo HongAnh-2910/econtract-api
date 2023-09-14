@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Enums\StatusIsActive;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\V1\Auth\LoginRequest;
-use App\Http\Requests\V1\Auth\RegisterRequest;
+use App\Http\Requests\V1\Auth\LoginAuthRequest;
+use App\Http\Requests\V1\Auth\RegisterAuthRequest;
 use App\Http\Resources\V1\User\UserResource;
 use App\Models\User;
 use Exception;
@@ -25,11 +25,11 @@ class AuthController extends Controller
     }
 
     /**
-     * @param RegisterRequest $request
+     * @param RegisterAuthRequest $request
      * @return JsonResponse
      */
 
-    public function register(RegisterRequest $request): JsonResponse
+    public function register(RegisterAuthRequest $request): JsonResponse
     {
         $params = $request->except('department_id' ,'password_confirmation');
         try {
@@ -45,11 +45,11 @@ class AuthController extends Controller
     }
 
     /**
-     * @param LoginRequest $request
+     * @param LoginAuthRequest $request
      * @return JsonResponse
      */
 
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginAuthRequest $request): JsonResponse
     {
         $email = $request->input('email');
         $password = $request->input('password');

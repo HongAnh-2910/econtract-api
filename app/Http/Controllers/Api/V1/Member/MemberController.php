@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Api\V1\Member;
 
+use App\Enums\TypeDelete;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Member\DestroyTypeMemberRequest;
+use App\Http\Requests\V1\Member\UpdateMemberRequest;
 use App\Http\Resources\V1\Member\MemberResource;
 use App\Models\Department;
 use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use App\Http\Requests\V1\Member\RegisterRequest;
+use App\Http\Requests\V1\Member\RegisterMemberRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MemberController extends Controller
 {
@@ -41,38 +44,32 @@ class MemberController extends Controller
     public function index():AnonymousResourceCollection
     {
         $members =  $this->user->with(['departments' => function($query){
-          return $query->whereNull('parent_id')->with('childrenDepartment');
-      }])->where(function ($query){
-           $query->where('parent_id' ,Auth::id());
-      })->paginate();
+          return $query->GetParentAndLoadChildrenDepartment();
+      }])->where('parent_id' ,Auth::id())->paginate();
 
         return  MemberResource::collection($members);
     }
 
     /**
-     * @param  RegisterRequest  $request
+     * @param  RegisterMemberRequest  $request
      * @return JsonResponse
      */
 
-    public function store(RegisterRequest $request):JsonResponse
+    public function store(RegisterMemberRequest $request)
     {
-        $departmentId = $request->input('department_id');
-        $query = $this->department->whereIn('id' , $departmentId)->whereNull('parent_id');
-//       $idsUserDepartment = Auth::user()->departments->pluck('id');
-//       $departmentId = $request->input('department_id');
-//       $departmentIdUnique = $idsUserDepartment->merge($departmentId)->unique();
-//       $departments = $this->department->whereIn('id' , $departmentIdUnique)->whereNull('parent_id')->get()->pluck('name');
+        $departmentIds = $request->input('department_id');
+        $query = $this->department->GetIdsDepartment($departmentIds)->whereNull('parent_id');
         $checkDepartment = $query->count();
-        if ($checkDepartment != count($departmentId)) {
+        if ($checkDepartment != count($departmentIds)) {
             throw new ValidationException('Phòng ban không tồn tại', 422);
         }
-        $data         = $query->with('childrenDepartment')->get();
-        $departmentId = collect($this->department::dataTree($data, null))->pluck('id');
+        $data         = $query->with('treeChildren')->get();
+        $departmentIds = dataTree($data, null)->pluck('id');
         $params       = $request->except('department_id', 'password_confirmation');
         $params['parent_id'] = Auth::id();
         try {
             $user = $this->user->create($params);
-            $user->departments()->sync($departmentId);
+            $user->departments()->sync($departmentIds);
             return $this->successResponse(null, 'success', 201);
         } catch (Exception $exception) {
             return $this->errorResponse('create user error', 500);
@@ -86,31 +83,82 @@ class MemberController extends Controller
     public function show($id):MemberResource
     {
        $member = $this->user->findOrFail($id)->load(['departments' => function($query){
-           return $query->whereNull('parent_id')->with('childrenDepartment');
+           return $query->GetParentAndLoadChildrenDepartment();
        }]);
        return new MemberResource($member);
     }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param  Request  $request
-     * @param  int  $id
-     * @return Response
+     * @param UpdateMemberRequest $request
+     * @param User $user
+     * @return JsonResponse|void
      */
-    public function update(Request $request, $id)
+    public function update(UpdateMemberRequest $request, User $user)
     {
-        dd('123');
+        $name          = $request->input('name');
+        $email         = $request->input('email');
+        $password      = $request->input('password');
+        $departmentIds = $request->input('department_id');
+        $active        = $request->input('active');
+        try {
+            $user->name     = $name ?? $user->name;
+            $user->email    = $email ?? $user->email;
+            $user->password = $password ?? $user->password;
+            $user->active   = $active ?? $user->active;
+            if ($request->hasFile('images')) {
+                $file     = $request->images;
+                $fileName = time().'_'.$file->getClientOriginalName();
+                handleUploadFile($file, Storage::path('public/uploads'), $fileName);
+                if ( ! is_null($user->img_user)) {
+                    handleRemoveFile(config('pathUploadFile.path_avatar_user'), $user->img_user);
+                }
+                $user->img_user = $fileName;
+            }
+            $user->save();
+            if (!empty($departmentIds))
+            {
+                $getDepartmentParent = $this->department->GetIdsDepartment($departmentIds)
+                                                        ->GetParentAndLoadChildrenDepartment()
+                                                        ->get();
+                $departmentId        = dataTree($getDepartmentParent, null)->pluck('id');
+                $user->departments()->sync($departmentId);
+                $member = $user->load(['departments' => function ($query) {
+                    return $query->GetParentAndLoadChildrenDepartment();
+                }]);
+            }else
+            {
+                $member = $user->load('departmentsOrUser');
+            }
+            return $this->successResponse(new MemberResource($member), 'success', 201);
+
+        } catch (Exception $exception) {
+            $this->errorResponse('error update member', 500);
+        }
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return Response
+     * @param $id
+     * @param  DestroyTypeMemberRequest  $request
+     * @return JsonResponse
      */
-    public function destroy($id)
+
+    public function destroy($id,DestroyTypeMemberRequest $request)
     {
-        //
+        $type = $request->input('type' , TypeDelete::SOFT_DELETE);
+        $member = $this->user->CheckTrashed($type)->findOrFail($id);
+        if ($type == TypeDelete::SOFT_DELETE)
+        {
+            $member->delete();
+            return $this->successResponse(null, 'oke', 201);
+        }
+        $departmentIds =  $member->departments->pluck('id');
+        try {
+            $member->departments()->detach($departmentIds);
+            $member->forceDelete();
+            return $this->successResponse(null, 'oke', 201);
+        }catch (Exception $exception)
+        {
+            return $this->errorResponse('error delete' ,500);
+        }
     }
 }

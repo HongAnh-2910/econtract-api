@@ -35,7 +35,7 @@ class DepartmentController extends Controller
         $departments = $this->department->QueryUserDepartment()
                                         ->when($status == Status::TRASHED , function ($query){
             return $query->onlyTrashed();
-        })->with(['user', 'childrenDepartment' => function ($query) {
+        })->with(['user', 'treeChildren' => function ($query) {
             return $query->with('parent', 'user');
         }])
             ->whereNull('parent_id')
@@ -54,7 +54,7 @@ class DepartmentController extends Controller
         $data = $request->validated();
         $data['user_id'] = Auth::id();
         $department = $this->department->create($data);
-        $department = new DepartmentResource($department->load('user', 'childrenDepartment', 'parent'));
+        $department = new DepartmentResource($department->load('user', 'treeChildren', 'parent'));
         return $this->successResponse($department, 'success', 200);
     }
 
@@ -64,10 +64,10 @@ class DepartmentController extends Controller
      */
     public function show(Department $department):JsonResponse
     {
-        $department = $department->load(['user', 'childrenDepartment' => function ($query) {
+        $department = $department->load(['user', 'treeChildren' => function ($query) {
             return $query->with(['parent', 'user']);
         } ,'parent' => function($query){
-            return $query->with('childrenDepartment', 'user');
+            return $query->with('treeChildren', 'user');
         }]);
         $department = new DepartmentResource($department);
         return $this->successResponse($department, 'success', 200);
@@ -86,7 +86,7 @@ class DepartmentController extends Controller
         $department->parent_id = $parentId;
         $department->user_id = Auth::id();
         $department->save();
-        $department = $department->load(['user', 'childrenDepartment' => function ($query) {
+        $department = $department->load(['user', 'treeChildren' => function ($query) {
             return $query->with('parent', 'user');
         } ,'parent' => function($query){
             return $query->with('children', 'user');

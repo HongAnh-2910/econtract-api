@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests\V1\Member;
 
-use App\Enums\StatusIsActive;
+use App\Enums\TypeDelete;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class RegisterRequest extends FormRequest
+class DestroyTypeMemberRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -26,11 +26,7 @@ class RegisterRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'required|min:6',
-            'email' => 'required|unique:users,email|email:rfc,dns',
-            'password' => 'required|min:6|confirmed',
-            'department_id' => 'required|array',
-            'active' => array('required', Rule::in(StatusIsActive::ACTIVE, StatusIsActive::NOT_ACTIVE))
+            'type' => ['required',Rule::in(TypeDelete::SOFT_DELETE , TypeDelete::DELETE)]
         ];
     }
 }

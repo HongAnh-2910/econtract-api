@@ -24,7 +24,7 @@ class DepartmentResource extends JsonResource
             'date_create' => Carbon::parse($this->created_at)->format('d-m-Y H:i:s'),
             'user' => new UserResource($this->whenLoaded('user')),
             'parent' => new DepartmentResource($this->whenLoaded('parent')),
-            'children' => DepartmentResource::collection($this->whenLoaded('childrenDepartment'))
+            'children' => DepartmentResource::collection($this->whenLoaded('treeChildren'))
         ];
     }
 }

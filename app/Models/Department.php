@@ -64,9 +64,9 @@ class Department extends Model
      * @return HasMany
      */
 
-    public function childrenDepartment():HasMany
+    public function treeChildren():HasMany
     {
-        return $this->children()->with('childrenDepartment')->with('user');
+        return $this->children()->with('treeChildren')->with('user');
     }
 
     /**
@@ -126,25 +126,12 @@ class Department extends Model
     }
 
     /**
-     * @param $data
-     * @param $id
-     * @param $level
-     * @return array
+     * @param $query
+     * @return mixed
      */
 
-    static function dataTree($data, $id, $level = 0):array
+    public function scopeGetParentAndLoadChildrenDepartment($query)
     {
-        $result = array();
-        foreach ($data as $item) {
-            if ($item->parent_id == $id) {
-                $item['level'] = $level;
-                $result[]      = $item;
-                $child         = self::dataTree($item->childrenDepartment, $item->id, $level + 1);
-                $result        = array_merge($result, $child);
-            }
-            unset($item);
-        }
-
-        return $result;
+        return $query->whereNull('parent_id')->with('treeChildren');
     }
 }

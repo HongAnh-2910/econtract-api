@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Department\DepartmentController;
+    use App\Http\Controllers\Api\V1\File\FileController;
+    use App\Http\Controllers\Api\V1\Folder\FolderController;
     use App\Http\Controllers\Api\V1\Member\MemberController;
     use App\Http\Controllers\Api\V1\Menu\MenuController;
 use Illuminate\Http\Request;
@@ -35,6 +37,15 @@ Route::prefix('v1/contract')->group(function (){
         Route::patch('department/{department}' , [DepartmentController::class ,'update']);
         Route::post('department/update-permission-department' , [DepartmentController::class ,'updatePermissionDepartment']);
 
-        Route::resource('member' , MemberController::class);
+        Route::resource('member' , MemberController::class)->except('update');
+        Route::post('member/{user}' , [MemberController::class ,'update']);
+
+        Route::resource('folder' , FolderController::class)->except('store' , 'show');
+        Route::post('folder/{id?}' , [FolderController::class ,'store']);
+        Route::get('folder/{id?}' , [FolderController::class ,'index']);
+        Route::post('folder/share-folder/{folderId}',[FolderController::class ,'shareFolder']);
+
+        Route::resource('file' , FileController::class);
+        Route::post('file/upload/{folderId?}',[FileController::class ,'uploadFileFolder']);
     });
 });

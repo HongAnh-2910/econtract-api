@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\TypeDelete;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +17,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable , SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -78,8 +81,41 @@ class User extends Authenticatable
         return $this->belongsToMany(Department::class,'user_department' ,'user_id' ,'department_id' );
     }
 
+    public function departmentsOrUser():HasMany
+    {
+        return $this->hasMany(Department::class,'user_id' ,'id');
+    }
+
+    /**
+     * @return BelongsTo
+     */
+
     public function parent()
     {
         return $this->belongsTo(User::class ,'parent_id' ,'id');
+    }
+
+    /**
+     * @param $query
+     * @param $type
+     * @return mixed
+     */
+
+    public function scopeCheckTrashed($query , $type)
+    {
+        if ($type == TypeDelete::DELETE)
+        {
+            return $query->onlyTrashed();
+        }
+        return $query;
+    }
+
+    /**
+     * @return BelongsToMany
+     */
+
+    public function shareUsers():BelongsToMany
+    {
+       return $this->belongsToMany(File::class ,'file_share' ,'user_id' ,'file_id');
     }
 }
