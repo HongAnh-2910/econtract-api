@@ -63,7 +63,7 @@ class MemberController extends Controller
         if ($checkDepartment != count($departmentIds)) {
             throw new ValidationException('Phòng ban không tồn tại', 422);
         }
-        $data         = $query->with('childrenDepartment')->get();
+        $data         = $query->with('treeChildren')->get();
         $departmentIds = dataTree($data, null)->pluck('id');
         $params       = $request->except('department_id', 'password_confirmation');
         $params['parent_id'] = Auth::id();

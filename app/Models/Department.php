@@ -64,9 +64,9 @@ class Department extends Model
      * @return HasMany
      */
 
-    public function childrenDepartment():HasMany
+    public function treeChildren():HasMany
     {
-        return $this->children()->with('childrenDepartment')->with('user');
+        return $this->children()->with('treeChildren')->with('user');
     }
 
     /**
@@ -132,6 +132,6 @@ class Department extends Model
 
     public function scopeGetParentAndLoadChildrenDepartment($query)
     {
-        return $query->whereNull('parent_id')->with('childrenDepartment');
+        return $query->whereNull('parent_id')->with('treeChildren');
     }
 }

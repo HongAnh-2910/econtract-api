@@ -8,11 +8,11 @@ if (!function_exists('dataTree'))
     function dataTree($data, $id, $level = 0)
     {
         $result = collect([]);
-        foreach ($data as $item) {
+        foreach ($data ?? [] as $item) {
             if ($item->parent_id == $id) {
                 $item['level'] = $level;
                 $result->push($item);
-                $child = dataTree($item->childrenDepartment, $item->id, $level + 1);
+                $child = dataTree($item->treeChildren, $item->id, $level + 1);
                 $result = $result->merge($child);
             }
             unset($item);

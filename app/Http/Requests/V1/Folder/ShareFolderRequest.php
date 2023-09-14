@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\V1\File;
+namespace App\Http\Requests\V1\Folder;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UploadFileRequest extends FormRequest
+class ShareFolderRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,8 +24,7 @@ class UploadFileRequest extends FormRequest
     public function rules()
     {
         return [
-            'files.*'         => 'required|mimes:jpeg,png,jpg,gif,pdf,doc,docx,xls,xlsx',
-            'user_share_ids'  => 'array'
+            'user_share_ids'  => 'required|array'
         ];
     }
 }

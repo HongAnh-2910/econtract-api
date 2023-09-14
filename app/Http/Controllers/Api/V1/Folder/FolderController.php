@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api\V1\Folder;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Folder\CreateFolderRequest;
+use App\Http\Requests\V1\Folder\ShareFolderRequest;
 use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\Folder\FolderResource;
 use App\Models\File;
 use App\Models\Folder;
+use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
@@ -26,10 +29,17 @@ class FolderController extends Controller
 
     protected File $file;
 
-    public function __construct(Folder $folder , File $file)
+    /**
+     * @var User
+     */
+
+    protected User $user;
+
+    public function __construct(Folder $folder , File $file , User $user)
     {
         $this->folder = $folder;
         $this->file = $file;
+        $this->user = $user;
     }
 
     /**
@@ -81,9 +91,22 @@ class FolderController extends Controller
         return new FolderResource($folder->load('user' , 'parent'));
     }
 
-    public function shareFolderOrFile($folderId)
+    public function shareFolder(ShareFolderRequest $request ,$folderId)
     {
-        dd($folderId);
+        $shareUserIds = $request->input('user_share_ids', []);
+        $folder = $this->folder->with('treeChildren' ,'parent')->ById($folderId)->first();
+        $users = $this->user->whereIn('id', $shareUserIds);
+        if (is_null($folder)) {
+            throw new ValidationException('Folder không tồn tại', 422);
+        }
+        if ($users->count() != count($shareUserIds)) {
+            throw new ValidationException('UserId không tồn tại', 422);
+        }
+//        return $folder->treeChildren;
+//        $parentFolder = Arr::get($folder->treeChildren ,$folderId);
+        $FolderIds = dataTree($folder->treeChildren , $folderId)->pluck('id')->merge(+ $folderId);
+        return $this->file->whereIn('folder_id' , $FolderIds)->get();
+
     }
 
     /**
