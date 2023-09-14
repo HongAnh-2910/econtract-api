@@ -5,21 +5,29 @@ namespace App\Http\Controllers\Api\V1\File;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\File\UploadFileRequest;
 use App\Models\File;
+use App\Models\User;
+use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class FileController extends Controller
 {
-    protected File $file;
-
     /**
      * @param  File  $file
      */
+    protected File $file;
 
-    public function __construct(File $file)
+    /**
+     * @var User
+     */
+
+    protected User $user;
+
+    public function __construct(File $file , User $user)
     {
         $this->file = $file;
+        $this->user = $user;
     }
 
     /**
@@ -35,27 +43,41 @@ class FileController extends Controller
 
     public function uploadFileFolder(UploadFileRequest $request , $folderId = null)
     {
-        $userShareId = $request->input('user_share_id');
+        $userShareId = $request->input('user_share_ids' ,[]);
+        $fileIds = [];
         try {
             if ($request->hasFile('files'))
             {
                 foreach ($request->file('files') as $file)
                 {
-                    $name = $file->getClientOriginalName();
+                    $name = time().'-'.$file->getClientOriginalName();
                     $storage = floor((int) $file->getSize() / 1024);
                     $extension = $file->getClientOriginalExtension();
-                    $this->file->create([
-                        'name' => time().'-'.$name,
-                        'path' => time().'-'.$name,
+                    $fileInstance =$this->file->create([
+                        'name' => $name,
+                        'path' => $name,
                         'type' => $extension,
                         'user_id' => Auth::id(),
                         'folder_id' => $folderId,
                         'size' => $storage
                     ]);
+                    $fileIds[] = $fileInstance->id;
                     handleUploadFile($file ,Storage::path('public/files') ,$name);
                 }
+                $users = $this->user->whereIn('id' , $userShareId)->get();
+
+                if ($users->count() > 0)
+                {
+                    foreach ($users as  $user)
+                    {
+                        $user->shareUsers()->sync($fileIds);
+                    }
+                }
+
               return $this->successResponse(null ,'oke' , 201);
             }
+
+            throw new ValidationException('File không hợp lệ');
 
         }catch (\Exception $exception)
         {

@@ -55,7 +55,7 @@ class MemberController extends Controller
      * @return JsonResponse
      */
 
-    public function store(RegisterMemberRequest $request):JsonResponse
+    public function store(RegisterMemberRequest $request)
     {
         $departmentIds = $request->input('department_id');
         $query = $this->department->GetIdsDepartment($departmentIds)->whereNull('parent_id');
@@ -64,12 +64,12 @@ class MemberController extends Controller
             throw new ValidationException('Phòng ban không tồn tại', 422);
         }
         $data         = $query->with('childrenDepartment')->get();
-        $departmentId = dataTree($data, null ,'childrenDepartment')->pluck('id');
+        $departmentIds = dataTree($data, null)->pluck('id');
         $params       = $request->except('department_id', 'password_confirmation');
         $params['parent_id'] = Auth::id();
         try {
             $user = $this->user->create($params);
-            $user->departments()->sync($departmentId);
+            $user->departments()->sync($departmentIds);
             return $this->successResponse(null, 'success', 201);
         } catch (Exception $exception) {
             return $this->errorResponse('create user error', 500);

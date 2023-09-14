@@ -46,7 +46,6 @@ if (!file_exists('checkImgTypeFile'))
      */
     function checkExtensionFileGetImgType($type):string
     {
-        $imgType = "";
 //        jpeg,png,jpg,gif,pdf,doc,docx,xls,xlsx
         switch ($type) {
             case 'docx':case 'doc':
@@ -67,6 +66,8 @@ if (!file_exists('checkImgTypeFile'))
             case 'file':
                 $imgType = asset(config('pathUploadFile.path_svg_file').'/file.svg');
                 break;
+            default:
+                $imgType = asset(config('pathUploadFile.path_svg_file').'/file.svg');
         }
         return $imgType;
 

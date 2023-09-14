@@ -25,7 +25,7 @@ class UploadFileRequest extends FormRequest
     {
         return [
             'files.*'         => 'required|mimes:jpeg,png,jpg,gif,pdf,doc,docx,xls,xlsx',
-            'user_share_id' => 'array'
+            'user_share_ids' => 'array'
         ];
     }
 }

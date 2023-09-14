@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Auth;
 
 class Folder extends Model
@@ -15,17 +16,6 @@ class Folder extends Model
 
     protected $guarded = [];
 
-    /**
-     * @return void
-     */
-
-    protected static function booted():void
-    {
-        static::addGlobalScope('user',function (Builder $builder){
-            $builder->where('user_id' ,Auth::id());
-        });
-
-    }
 
     /**
      * @return BelongsTo
@@ -54,5 +44,26 @@ class Folder extends Model
     public function scopeById($query , $id)
     {
         return $query->where('id', $id);
+    }
+
+    /**
+     * @return BelongsToMany
+     */
+
+    public function users():BelongsToMany
+    {
+        return $this->belongsToMany(User::class ,'folder_share' ,'folder_id' , 'user_id');
+    }
+
+    /**
+     * @param $query
+     * @return mixed
+     */
+
+    public function scopeByUserIdOrUserIdShare($query)
+    {
+        return $query->where('user_id' , Auth::id())->orWhereHas('users' , function ($query){
+            $query->where('user_id', Auth::id());
+        });
     }
 }

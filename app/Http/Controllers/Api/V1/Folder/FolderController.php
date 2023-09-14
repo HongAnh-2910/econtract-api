@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\Folder;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Folder\CreateFolderRequest;
+use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\Folder\FolderResource;
+use App\Models\File;
 use App\Models\Folder;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
@@ -13,16 +15,26 @@ use Illuminate\Support\Str;
 
 class FolderController extends Controller
 {
-    protected $folder;
+    /**
+     * @var Folder
+     */
+    protected Folder $folder;
 
-    public function __construct(Folder $folder)
+    /**
+     * @var File
+     */
+
+    protected File $file;
+
+    public function __construct(Folder $folder , File $file)
     {
         $this->folder = $folder;
+        $this->file = $file;
     }
 
     /**
      * @param $id
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     * @return \Illuminate\Http\JsonResponse
      */
     public function index($id = null)
     {
@@ -32,8 +44,17 @@ class FolderController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
-        $folder =  $this->folder->where('parent_id' , $id)->paginate();
-        return  FolderResource::collection($folder->load('user' , 'parent'));
+        $folders = $this->folder->where('parent_id', $id)
+                                ->ByUserIdOrUserIdShare()
+                                ->get();
+        $files   = $this->file->with('user', 'folder')->where('folder_id', $id)
+                              ->ByUserIdOrUserIdShare()
+                              ->get();
+        $data    = [
+            'folders' => FolderResource::collection($folders->load('user', 'parent')),
+            'files'   => FileResource::collection($files)
+        ];
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -58,6 +79,11 @@ class FolderController extends Controller
         }
         $folder = $this->folder->create($data);
         return new FolderResource($folder->load('user' , 'parent'));
+    }
+
+    public function shareFolderOrFile($folderId)
+    {
+        dd($folderId);
     }
 
     /**

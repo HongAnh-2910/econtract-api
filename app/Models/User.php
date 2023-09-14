@@ -109,4 +109,13 @@ class User extends Authenticatable
         }
         return $query;
     }
+
+    /**
+     * @return BelongsToMany
+     */
+
+    public function shareUsers():BelongsToMany
+    {
+       return $this->belongsToMany(File::class ,'file_share' ,'user_id' ,'file_id');
+    }
 }
