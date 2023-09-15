@@ -10,11 +10,14 @@ use App\Http\Resources\V1\Folder\FolderResource;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
+use App\Services\FolderService\FolderServiceInterface;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipArchive;
 
@@ -131,29 +134,22 @@ class FolderController extends Controller
         }
     }
 
-    public function downloadFolder()
+    public function downloadFolder($folderId)
     {
-        $zip = new ZipArchive;
+        $currentFolder = $this->folder->where('id', $folderId)->first();
+        if (is_null($currentFolder)) {
+            throw new ValidationException('Folder không tồn tại', 500);
+        }
+        $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
+        $zip           = new ZipArchive();
 
-        $fileName = 'zipFileName.zip';
-
-        if ($zip->open(public_path($fileName), ZipArchive::CREATE) === TRUE)
-        {
-            // Folder files to zip and download
-            // files folder must be existing to your public folder
-            $files = File::files(public_path('files'));
-
-            // loop the files result
-            foreach ($files as $key => $value) {
-                $relativeNameInZipFile = basename($value);
-                $zip->addFile($value, $relativeNameInZipFile);
-            }
-
+        $path    = '';
+        $zipFile = app()->make(FolderServiceInterface::class);
+        if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+            $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
             $zip->close();
         }
-
-        // Download the generated zip
-        return response()->download(public_path($fileName));
+        return response()->download($nameFolderZip)->deleteFileAfterSend(true);
     }
 
     /**
