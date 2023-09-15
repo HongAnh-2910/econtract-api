@@ -14,7 +14,9 @@ use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use ZipArchive;
 
 class FolderController extends Controller
 {
@@ -91,22 +93,67 @@ class FolderController extends Controller
         return new FolderResource($folder->load('user' , 'parent'));
     }
 
-    public function shareFolder(ShareFolderRequest $request ,$folderId)
+    /**
+     * @param  ShareFolderRequest  $request
+     * @param $folderId
+     * @return \Illuminate\Http\JsonResponse|void
+     */
+
+    public function shareFolder(ShareFolderRequest $request, $folderId)
     {
         $shareUserIds = $request->input('user_share_ids', []);
-        $folder = $this->folder->with('treeChildren' ,'parent')->ById($folderId)->first();
-        $users = $this->user->whereIn('id', $shareUserIds);
+        $folder       = $this->folder->with('treeChildren', 'parent')->ById($folderId)->first();
+        $users        = $this->user->whereIn('id', $shareUserIds);
         if (is_null($folder)) {
             throw new ValidationException('Folder không tồn tại', 422);
         }
         if ($users->count() != count($shareUserIds)) {
             throw new ValidationException('UserId không tồn tại', 422);
         }
-//        return $folder->treeChildren;
-//        $parentFolder = Arr::get($folder->treeChildren ,$folderId);
-        $FolderIds = dataTree($folder->treeChildren , $folderId)->pluck('id')->merge(+ $folderId);
-        return $this->file->whereIn('folder_id' , $FolderIds)->get();
+        $folderIds = dataTree($folder->treeChildren, $folderId)->pluck('id')->merge(+$folderId);
+        $filesIds  = $this->file->whereIn('folder_id', $folderIds)->get()->pluck('id');
+        DB::beginTransaction();
+        try {
+            foreach ($users->get() as $user) {
+                if (count($folderIds) > 0) {
+                    $user->folders()->attach($folderIds);
+                }
+                if (count($filesIds) > 0) {
+                    $user->files()->attach($filesIds);
+                }
+            }
+            DB::commit();
+           return $this->successResponse(null, 'oke', 201);
 
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            $this->errorResponse('share file error', 500);
+        }
+    }
+
+    public function downloadFolder()
+    {
+        $zip = new ZipArchive;
+
+        $fileName = 'zipFileName.zip';
+
+        if ($zip->open(public_path($fileName), ZipArchive::CREATE) === TRUE)
+        {
+            // Folder files to zip and download
+            // files folder must be existing to your public folder
+            $files = File::files(public_path('files'));
+
+            // loop the files result
+            foreach ($files as $key => $value) {
+                $relativeNameInZipFile = basename($value);
+                $zip->addFile($value, $relativeNameInZipFile);
+            }
+
+            $zip->close();
+        }
+
+        // Download the generated zip
+        return response()->download(public_path($fileName));
     }
 
     /**

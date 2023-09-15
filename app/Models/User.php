@@ -118,4 +118,23 @@ class User extends Authenticatable
     {
        return $this->belongsToMany(File::class ,'file_share' ,'user_id' ,'file_id');
     }
+
+    /**
+     * @return BelongsToMany
+     */
+
+
+    public function folders():BelongsToMany
+    {
+        return $this->belongsToMany(Folder::class ,'folder_share' ,'user_id' ,'folder_id');
+    }
+
+    /**
+     * @return BelongsToMany
+     */
+
+    public function files():BelongsToMany
+    {
+        return $this->belongsToMany(File::class ,'file_share' ,'user_id' ,'file_id');
+    }
 }
