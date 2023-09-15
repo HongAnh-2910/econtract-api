@@ -44,6 +44,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::post('folder/{id?}' , [FolderController::class ,'store']);
         Route::get('folder/{id?}' , [FolderController::class ,'index']);
         Route::post('folder/share-folder/{folderId}',[FolderController::class ,'shareFolder']);
+        Route::post('folder/download-folder/{folderId}',[FolderController::class ,'downloadFolder']);
 
         Route::resource('file' , FileController::class);
         Route::post('file/upload/{folderId?}',[FileController::class ,'uploadFileFolder']);

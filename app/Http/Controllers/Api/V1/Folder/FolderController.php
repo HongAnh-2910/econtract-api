@@ -10,11 +10,16 @@ use App\Http\Resources\V1\Folder\FolderResource;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
+use App\Services\FolderService\FolderServiceInterface;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use ZipArchive;
 
 class FolderController extends Controller
 {
@@ -91,22 +96,60 @@ class FolderController extends Controller
         return new FolderResource($folder->load('user' , 'parent'));
     }
 
-    public function shareFolder(ShareFolderRequest $request ,$folderId)
+    /**
+     * @param  ShareFolderRequest  $request
+     * @param $folderId
+     * @return \Illuminate\Http\JsonResponse|void
+     */
+
+    public function shareFolder(ShareFolderRequest $request, $folderId)
     {
         $shareUserIds = $request->input('user_share_ids', []);
-        $folder = $this->folder->with('treeChildren' ,'parent')->ById($folderId)->first();
-        $users = $this->user->whereIn('id', $shareUserIds);
+        $folder       = $this->folder->with('treeChildren', 'parent')->ById($folderId)->first();
+        $users        = $this->user->whereIn('id', $shareUserIds);
         if (is_null($folder)) {
             throw new ValidationException('Folder không tồn tại', 422);
         }
         if ($users->count() != count($shareUserIds)) {
             throw new ValidationException('UserId không tồn tại', 422);
         }
-//        return $folder->treeChildren;
-//        $parentFolder = Arr::get($folder->treeChildren ,$folderId);
-        $FolderIds = dataTree($folder->treeChildren , $folderId)->pluck('id')->merge(+ $folderId);
-        return $this->file->whereIn('folder_id' , $FolderIds)->get();
+        $folderIds = dataTree($folder->treeChildren, $folderId)->pluck('id')->merge(+$folderId);
+        $filesIds  = $this->file->whereIn('folder_id', $folderIds)->get()->pluck('id');
+        DB::beginTransaction();
+        try {
+            foreach ($users->get() as $user) {
+                if (count($folderIds) > 0) {
+                    $user->folders()->attach($folderIds);
+                }
+                if (count($filesIds) > 0) {
+                    $user->files()->attach($filesIds);
+                }
+            }
+            DB::commit();
+           return $this->successResponse(null, 'oke', 201);
 
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            $this->errorResponse('share file error', 500);
+        }
+    }
+
+    public function downloadFolder($folderId)
+    {
+        $currentFolder = $this->folder->where('id', $folderId)->first();
+        if (is_null($currentFolder)) {
+            throw new ValidationException('Folder không tồn tại', 500);
+        }
+        $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
+        $zip           = new ZipArchive();
+
+        $path    = '';
+        $zipFile = app()->make(FolderServiceInterface::class);
+        if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+            $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
+            $zip->close();
+        }
+        return response()->download($nameFolderZip)->deleteFileAfterSend(true);
     }
 
     /**

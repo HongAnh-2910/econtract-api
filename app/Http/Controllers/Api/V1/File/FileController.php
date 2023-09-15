@@ -9,6 +9,7 @@ use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class FileController extends Controller
@@ -41,10 +42,17 @@ class FileController extends Controller
         //
     }
 
+    /**
+     * @param  UploadFileRequest  $request
+     * @param $folderId
+     * @return \Illuminate\Http\JsonResponse|void
+     */
+
     public function uploadFileFolder(UploadFileRequest $request , $folderId = null)
     {
         $userShareId = $request->input('user_share_ids' ,[]);
         $fileIds = [];
+        DB::beginTransaction();
         try {
             if ($request->hasFile('files'))
             {
@@ -73,7 +81,7 @@ class FileController extends Controller
                         $user->shareUsers()->sync($fileIds);
                     }
                 }
-
+                DB::commit();
               return $this->successResponse(null ,'oke' , 201);
             }
 
@@ -81,6 +89,7 @@ class FileController extends Controller
 
         }catch (\Exception $exception)
         {
+            DB::rollBack();
             $this->errorResponse('error upload files' , 500);
         }
     }
