@@ -28,7 +28,6 @@
         {
             $filesByFolder = $this->file->where('folder_id' , $folder->id)->get();
             $childFolders = $folder->children()->get();
-
             if (count($filesByFolder)) {
                 foreach ($filesByFolder as $item) {
                     if (file_exists($fileName = Storage::path('public/files').'/'.$item->name)) {
