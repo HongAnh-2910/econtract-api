@@ -7,18 +7,28 @@ use App\Http\Requests\V1\Folder\CreateFolderRequest;
 use App\Http\Requests\V1\Folder\ShareFolderRequest;
 use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\Folder\FolderResource;
+use App\Jobs\ZipFileOrFolderDownload;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
 use App\Services\FolderService\FolderServiceInterface;
+use DomainException;
 use Dotenv\Exception\ValidationException;
+use Exception;
+use Illuminate\Bus\Batch;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Predis\Client;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
 class FolderController extends Controller
@@ -49,7 +59,7 @@ class FolderController extends Controller
 
     /**
      * @param $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function index($id = null)
     {
@@ -59,12 +69,21 @@ class FolderController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
-        $folders = $this->folder->where('parent_id', $id)
+        $folders = $this->folder->where('parent_id', $id)->with('user', 'parent')
                                 ->ByUserIdOrUserIdShare()
                                 ->get();
         $files   = $this->file->with('user', 'folder')->where('folder_id', $id)
                               ->ByUserIdOrUserIdShare()
                               ->get();
+        $folders =$folders->map(function ($item){
+            $item['folder_id'] = $item->id;
+            unset($item->id);
+            return $item;
+       });
+        $foldersFiles = collect($folders->push($files))->flatten()->sortBy(function ($item){
+            return $item->created_at;
+        })->values()->all();
+        return $foldersFiles;
         $data    = [
             'folders' => FolderResource::collection($folders->load('user', 'parent')),
             'files'   => FileResource::collection($files)
@@ -99,7 +118,7 @@ class FolderController extends Controller
     /**
      * @param  ShareFolderRequest  $request
      * @param $folderId
-     * @return \Illuminate\Http\JsonResponse|void
+     * @return JsonResponse|void
      */
 
     public function shareFolder(ShareFolderRequest $request, $folderId)
@@ -128,12 +147,17 @@ class FolderController extends Controller
             DB::commit();
            return $this->successResponse(null, 'oke', 201);
 
-        } catch (\Exception $exception) {
+        } catch (Exception $exception) {
             DB::rollBack();
             $this->errorResponse('share file error', 500);
         }
     }
 
+    /**
+     * @param $folderId
+     * @return BinaryFileResponse
+     * @throws BindingResolutionException
+     */
     public function downloadFolder($folderId)
     {
         $currentFolder = $this->folder->where('id', $folderId)->first();
@@ -141,22 +165,28 @@ class FolderController extends Controller
             throw new ValidationException('Folder không tồn tại', 500);
         }
         $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
-        $zip           = new ZipArchive();
+        try {
+            $zip           = new ZipArchive();
+            $path    = '';
+            $zipFile = app()->make(FolderServiceInterface::class);
+            if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+                $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
+                $zip->close();
+            }
+            return response()->download($nameFolderZip)->deleteFileAfterSend();
 
-        $path    = '';
-        $zipFile = app()->make(FolderServiceInterface::class);
-        if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
-            $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
-            $zip->close();
+        }catch (DomainException $exception)
+        {
+            throw new DomainException($exception->getMessage() , 500);
         }
-        return response()->download($nameFolderZip)->deleteFileAfterSend(true);
+
     }
 
     /**
      * Display the specified resource.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function show($id)
     {
@@ -166,9 +196,9 @@ class FolderController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param Request $request
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function update(Request $request, $id)
     {
@@ -179,7 +209,7 @@ class FolderController extends Controller
      * Remove the specified resource from storage.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     public function destroy($id)
     {
