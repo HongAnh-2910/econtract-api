@@ -3,6 +3,7 @@
 namespace App\Http\Requests\V1\Folder;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ShareFolderRequest extends FormRequest
 {
@@ -24,7 +25,8 @@ class ShareFolderRequest extends FormRequest
     public function rules()
     {
         return [
-            'user_share_ids'  => 'required|array'
+            'user_share_ids'  => 'required|array',
+            'type_check'      => ['required' , Rule::in(['folder' ,'file'])]
         ];
     }
 }

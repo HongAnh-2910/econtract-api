@@ -43,7 +43,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::resource('folder' , FolderController::class)->except('store' , 'show');
         Route::post('folder/{id?}' , [FolderController::class ,'store']);
         Route::get('folder/{id?}' , [FolderController::class ,'index']);
-        Route::post('folder/share-folder/{folderId}',[FolderController::class ,'shareFolder']);
+        Route::post('folder/share-folder-or-file/{folderIdOrFile}',[FolderController::class ,'shareFolderOrFile']);
         Route::post('folder/download-folder/{folderId}',[FolderController::class ,'downloadFolder']);
 
         Route::resource('file' , FileController::class);

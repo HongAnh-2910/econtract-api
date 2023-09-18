@@ -7,6 +7,7 @@ use App\Http\Requests\V1\Folder\CreateFolderRequest;
 use App\Http\Requests\V1\Folder\ShareFolderRequest;
 use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\Folder\FolderResource;
+use App\Http\Resources\V1\FolderFileResource;
 use App\Jobs\ZipFileOrFolderDownload;
 use App\Models\File;
 use App\Models\Folder;
@@ -19,6 +20,7 @@ use Illuminate\Bus\Batch;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +61,7 @@ class FolderController extends Controller
 
     /**
      * @param $id
-     * @return JsonResponse
+     * @return AnonymousResourceCollection
      */
     public function index($id = null)
     {
@@ -80,15 +82,8 @@ class FolderController extends Controller
             unset($item->id);
             return $item;
        });
-        $foldersFiles = collect($folders->push($files))->flatten()->sortBy(function ($item){
-            return $item->created_at;
-        })->values()->all();
-        return $foldersFiles;
-        $data    = [
-            'folders' => FolderResource::collection($folders->load('user', 'parent')),
-            'files'   => FileResource::collection($files)
-        ];
-        return response()->json(['data' => $data]);
+        $foldersFiles = $folders->push($files)->flatten()->sortBy('created_at')->values()->all();
+        return FolderFileResource::collection($foldersFiles);
     }
 
     /**
@@ -105,13 +100,19 @@ class FolderController extends Controller
             'parent_id' => ! empty($id) ? $id : null,
             'slug'      => Str::slug($name)
         ];
+        $userIdShare = [];
         if ($id) {
             $folder = $this->folder->ById($id)->first();
+            $userIdShare =  $folder->users()->get()->pluck('id');
             if (is_null($folder)) {
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
         $folder = $this->folder->create($data);
+        if (count($userIdShare) > 0)
+        {
+            $folder->users->attach($userIdShare);
+        }
         return new FolderResource($folder->load('user' , 'parent'));
     }
 
@@ -121,35 +122,55 @@ class FolderController extends Controller
      * @return JsonResponse|void
      */
 
-    public function shareFolder(ShareFolderRequest $request, $folderId)
+    public function shareFolderOrFile(ShareFolderRequest $request, $folderOrFileId)
     {
         $shareUserIds = $request->input('user_share_ids', []);
-        $folder       = $this->folder->with('treeChildren', 'parent')->ById($folderId)->first();
+        $typeCheck    = $request->input('type_check');
         $users        = $this->user->whereIn('id', $shareUserIds);
-        if (is_null($folder)) {
-            throw new ValidationException('Folder không tồn tại', 422);
+        if ($typeCheck == 'folder')
+        {
+            $folder       = $this->folder->with('treeChildren', 'parent')->ById($folderOrFileId)->first();
+            if (is_null($folder)) {
+                throw new ValidationException('Folder không tồn tại', 422);
+            }
+            if ($users->count() != count($shareUserIds)) {
+                throw new ValidationException('UserId không tồn tại', 422);
+            }
+            $folderIds = dataTree($folder->treeChildren, $folderOrFileId)->pluck('id')->merge(+$folderOrFileId);
+            $filesIds  = $this->file->whereIn('folder_id', $folderIds)->get()->pluck('id');
+            DB::beginTransaction();
+            try {
+                foreach ($users->get() as $user) {
+                    if (count($folderIds) > 0) {
+                        $user->folders()->attach($folderIds);
+                    }
+                    if (count($filesIds) > 0) {
+                        $user->files()->attach($filesIds);
+                    }
+                }
+                DB::commit();
+                return $this->successResponse(null, 'oke', 201);
+
+            } catch (Exception $exception) {
+                DB::rollBack();
+                return $this->errorResponse('share file error', 500);
+            }
         }
-        if ($users->count() != count($shareUserIds)) {
-            throw new ValidationException('UserId không tồn tại', 422);
-        }
-        $folderIds = dataTree($folder->treeChildren, $folderId)->pluck('id')->merge(+$folderId);
-        $filesIds  = $this->file->whereIn('folder_id', $folderIds)->get()->pluck('id');
+//        share File
+        $file = $this->file->where('id' , $folderOrFileId)->first();
+       if ($file->users()->count() > 0 && count($shareUserIds) > 0)
+       {
+           throw new ValidationException('User được chọn đã có file này !', 422);
+       }
         DB::beginTransaction();
         try {
-            foreach ($users->get() as $user) {
-                if (count($folderIds) > 0) {
-                    $user->folders()->attach($folderIds);
-                }
-                if (count($filesIds) > 0) {
-                    $user->files()->attach($filesIds);
-                }
-            }
+            $file->users()->sync($shareUserIds);
             DB::commit();
-           return $this->successResponse(null, 'oke', 201);
-
-        } catch (Exception $exception) {
-            DB::rollBack();
-            $this->errorResponse('share file error', 500);
+            return $this->successResponse(null, 'oke', 201);
+        }catch (Exception $exception)
+        {
+            DB::commit();
+            return $this->errorResponse('share file error', 500);
         }
     }
 
