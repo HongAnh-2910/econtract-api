@@ -71,17 +71,17 @@ class FolderController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
-        $folders = $this->folder->where('parent_id', $id)->with('user', 'parent')
-                                ->ByUserIdOrUserIdShare()
-                                ->get();
-        $files   = $this->file->with('user', 'folder')->where('folder_id', $id)
-                              ->ByUserIdOrUserIdShare()
-                              ->get();
-        $folders =$folders->map(function ($item){
+        $folders      = $this->folder->where('parent_id', $id)->with('user', 'parent')
+                                     ->ByUserIdOrUserIdShare()
+                                     ->get();
+        $files        = $this->file->with('user', 'folder')->where('folder_id', $id)
+                                   ->ByUserIdOrUserIdShare()
+                                   ->get();
+        $folders      = $folders->map(function ($item) {
             $item['folder_id'] = $item->id;
             unset($item->id);
             return $item;
-       });
+        });
         $foldersFiles = $folders->push($files)->flatten()->sortBy('created_at')->values()->all();
         return FolderFileResource::collection($foldersFiles);
     }
@@ -93,8 +93,8 @@ class FolderController extends Controller
      */
     public function store(CreateFolderRequest $request , $id = null)
     {
-        $name = $request->input('name');
-        $data = [
+        $name        = $request->input('name');
+        $data        = [
             'name'      => $name,
             'user_id'   => Auth::id(),
             'parent_id' => ! empty($id) ? $id : null,
@@ -102,18 +102,17 @@ class FolderController extends Controller
         ];
         $userIdShare = [];
         if ($id) {
-            $folder = $this->folder->ById($id)->first();
-            $userIdShare =  $folder->users()->get()->pluck('id');
+            $folder      = $this->folder->ById($id)->first();
+            $userIdShare = $folder->users()->get()->pluck('id');
             if (is_null($folder)) {
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
         $folder = $this->folder->create($data);
-        if (count($userIdShare) > 0)
-        {
+        if (count($userIdShare) > 0) {
             $folder->users->attach($userIdShare);
         }
-        return new FolderResource($folder->load('user' , 'parent'));
+        return new FolderResource($folder->load('user', 'parent'));
     }
 
     /**
@@ -127,9 +126,8 @@ class FolderController extends Controller
         $shareUserIds = $request->input('user_share_ids', []);
         $typeCheck    = $request->input('type_check');
         $users        = $this->user->whereIn('id', $shareUserIds);
-        if ($typeCheck == 'folder')
-        {
-            $folder       = $this->folder->with('treeChildren', 'parent')->ById($folderOrFileId)->first();
+        if ($typeCheck == 'folder') {
+            $folder = $this->folder->with('treeChildren', 'parent')->ById($folderOrFileId)->first();
             if (is_null($folder)) {
                 throw new ValidationException('Folder không tồn tại', 422);
             }
@@ -157,18 +155,16 @@ class FolderController extends Controller
             }
         }
 //        share File
-        $file = $this->file->where('id' , $folderOrFileId)->first();
-       if ($file->users()->count() > 0 && count($shareUserIds) > 0)
-       {
-           throw new ValidationException('User được chọn đã có file này !', 422);
-       }
+        $file = $this->file->where('id', $folderOrFileId)->first();
+        if ($file->users()->count() > 0 && count($shareUserIds) > 0) {
+            throw new ValidationException('User được chọn đã có file này !', 422);
+        }
         DB::beginTransaction();
         try {
             $file->users()->sync($shareUserIds);
             DB::commit();
             return $this->successResponse(null, 'oke', 201);
-        }catch (Exception $exception)
-        {
+        } catch (Exception $exception) {
             DB::commit();
             return $this->errorResponse('share file error', 500);
         }
@@ -187,7 +183,7 @@ class FolderController extends Controller
         }
         $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
         try {
-            $zip           = new ZipArchive();
+            $zip     = new ZipArchive();
             $path    = '';
             $zipFile = app()->make(FolderServiceInterface::class);
             if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
@@ -196,9 +192,8 @@ class FolderController extends Controller
             }
             return response()->download($nameFolderZip)->deleteFileAfterSend();
 
-        }catch (DomainException $exception)
-        {
-            throw new DomainException($exception->getMessage() , 500);
+        } catch (DomainException $exception) {
+            throw new DomainException($exception->getMessage(), 500);
         }
 
     }
