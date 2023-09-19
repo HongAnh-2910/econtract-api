@@ -32,6 +32,7 @@ class FileController extends Controller
     {
         $this->file = $file;
         $this->user = $user;
+        $this->folder = $folder;
     }
 
     /**

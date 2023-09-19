@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1\Folder;
 
+use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Folder\CreateFolderRequest;
+use App\Http\Requests\V1\Folder\DeleteFolderOrFileRequest;
+use App\Http\Requests\V1\Folder\RenameFolderRequest;
+use App\Http\Requests\V1\Folder\TypeCheckFolderOrFileRequest;
 use App\Http\Requests\V1\Folder\ShareFolderRequest;
-use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\Folder\FolderResource;
 use App\Http\Resources\V1\FolderFileResource;
-use App\Jobs\ZipFileOrFolderDownload;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
@@ -16,21 +18,15 @@ use App\Services\FolderService\FolderServiceInterface;
 use DomainException;
 use Dotenv\Exception\ValidationException;
 use Exception;
-use Illuminate\Bus\Batch;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Predis\Client;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
@@ -72,10 +68,10 @@ class FolderController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
-        $folders      = $this->folder->where('parent_id', $id)->with('user', 'parent')
+        $folders      = $this->folder->GetByParent($id)->with('user', 'parent' ,'users')
                                      ->ByUserIdOrUserIdShare()
                                      ->get();
-        $files        = $this->file->with('user', 'folder')->where('folder_id', $id)
+        $files        = $this->file->with('user', 'folder' ,'users')->where('folder_id', $id)
                                    ->ByUserIdOrUserIdShare()
                                    ->get();
         $folders      = $folders->map(function ($item) {
@@ -101,18 +97,13 @@ class FolderController extends Controller
             'parent_id' => ! empty($id) ? $id : null,
             'slug'      => Str::slug($name)
         ];
-        $userIdShare = [];
         if ($id) {
             $folder      = $this->folder->ById($id)->first();
-            $userIdShare = $folder->users()->get()->pluck('id');
             if (is_null($folder)) {
                 throw new ValidationException('Folder không tồn tại', 422);
             }
         }
         $folder = $this->folder->create($data);
-        if (count($userIdShare) > 0) {
-            $folder->users->attach($userIdShare);
-        }
         return new FolderResource($folder->load('user', 'parent'));
     }
 
@@ -122,29 +113,34 @@ class FolderController extends Controller
      * @return JsonResponse|void
      */
 
-    public function shareFolderOrFile(ShareFolderRequest $request, $folderOrFileId)
+    public function shareFolderOrFile(ShareFolderRequest $request, $folderIdOrFileId)
     {
-        $shareUserIds = $request->input('user_share_ids', []);
+        $shareUserIds = collect($request->input('user_share_ids', []))->filter();
         $typeCheck    = $request->input('type_check');
         $users        = $this->user->whereIn('id', $shareUserIds);
-        if ($typeCheck == 'folder') {
-            $folder = $this->folder->with('treeChildren', 'parent')->ById($folderOrFileId)->first();
+        if ($typeCheck == Status::FOLDER) {
+            $folder = $this->folder->with('treeChildren', 'parent')->ById($folderIdOrFileId)->first();
             if (is_null($folder)) {
                 throw new ValidationException('Folder không tồn tại', 422);
             }
             if ($users->count() != count($shareUserIds)) {
                 throw new ValidationException('UserId không tồn tại', 422);
             }
-            $folderIds = dataTree($folder->treeChildren, $folderOrFileId)->pluck('id')->merge(+$folderOrFileId);
-            $filesIds  = $this->file->whereIn('folder_id', $folderIds)->get()->pluck('id');
+            $folderIds = dataTree($folder->treeChildren, $folderIdOrFileId)->pluck('id')->merge(+$folderIdOrFileId);
+            $files  = $this->file->whereIn('folder_id', $folderIds)->get();
+            $filesIds = $files->pluck('id');
             DB::beginTransaction();
             try {
-                foreach ($users->get() as $user) {
-                    if (count($folderIds) > 0) {
-                        $user->folders()->attach($folderIds);
+                if (count($folderIds) > 0) {
+                    foreach ($this->folder->GetByIds($folderIds)->get() as $folder)
+                    {
+                        $folder->users()->sync($shareUserIds);
                     }
-                    if (count($filesIds) > 0) {
-                        $user->files()->attach($filesIds);
+                }
+                if (count($filesIds) > 0) {
+                    foreach ($files as $file)
+                    {
+                       $file->users()->sync($shareUserIds);
                     }
                 }
                 DB::commit();
@@ -156,10 +152,10 @@ class FolderController extends Controller
             }
         }
 //        share File
-        $file = $this->file->where('id', $folderOrFileId)->first();
+        $file = $this->file->where('id', $folderIdOrFileId)->first();
         if (is_null($file))
         {
-            throw new ValidationException('File không tồn tại', 422);
+            throw new ValidationException('file không tồn tại !', 422);
         }
         if ($file->users()->get()->whereIn('id' , $shareUserIds)->count() > 0) {
             throw new ValidationException('User được chọn đã có file này !', 422);
@@ -180,60 +176,115 @@ class FolderController extends Controller
      * @return BinaryFileResponse
      * @throws BindingResolutionException
      */
-    public function downloadFolder($folderId)
+    public function downloadFolderOrFile(TypeCheckFolderOrFileRequest $request , $folderIdOrFileId)
     {
-        $currentFolder = $this->folder->where('id', $folderId)->first();
-        if (is_null($currentFolder)) {
-            throw new ValidationException('Folder không tồn tại', 500);
-        }
-        $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
-        try {
-            $zip     = new ZipArchive();
-            $path    = '';
-            $zipFile = app()->make(FolderServiceInterface::class);
-            if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
-                $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
-                $zip->close();
+        $typeCheck     = $request->input('type_check');
+        if ($typeCheck == Status::FOLDER)
+        {
+            $currentFolder = $this->folder->GetById($folderIdOrFileId)->first();
+            if (is_null($currentFolder)) {
+                throw new ValidationException('Folder không tồn tại', 422);
             }
-            return response()->download($nameFolderZip)->deleteFileAfterSend();
+            $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
+            try {
+                $zip     = new ZipArchive();
+                $path    = '';
+                $zipFile = app()->make(FolderServiceInterface::class);
+                if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+                    $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
+                    $zip->close();
+                }
+                return response()->download($nameFolderZip)->deleteFileAfterSend();
 
-        } catch (DomainException $exception) {
-            throw new DomainException($exception->getMessage(), 500);
+            } catch (DomainException $exception) {
+                throw new DomainException($exception->getMessage(), 500);
+            }
         }
 
+//        download file
+
+        $file = $this->file->findOrFail($folderIdOrFileId);
+        if (is_null($file)) {
+            throw new ValidationException('File không tồn tại', 422);
+        }
+       $path = Storage::path('public/files'.'/'.$file->name);
+        if (file_exists($path))
+        {
+            return response()->download($path);
+        }else
+        {
+            throw new ValidationException('error download file', 422);
+        }
     }
 
     /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return Response
+     * @param  Folder  $folder
+     * @param  RenameFolderRequest  $request
+     * @return JsonResponse
      */
-    public function show($id)
+
+    public function renameFolder(Folder $folder , RenameFolderRequest $request)
     {
-        dd('13');
+        $name = $request->input('name');
+        $folder->name = $name;
+        $folder->save();
+        return $this->successResponse(null, 'oke', 201);
+
     }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param Request $request
-     * @param  int  $id
-     * @return Response
+     * @param  TypeCheckFolderOrFileRequest $request
+     * @param $folderIdOrFileId
+     * @return JsonResponse
      */
-    public function update(Request $request, $id)
+
+    public function movedFolderOrFile(TypeCheckFolderOrFileRequest $request , $folderIdOrFileId)
     {
-        //
+        $typeCheck      = $request->input('type_check');
+        $folderParentId = $request->input('folder_parent_id');
+
+        if ($folderParentId) {
+            $folderParentMoved = $this->folder->find($folderParentId);
+            if (is_null($folderParentMoved)) {
+                throw new ValidationException('Folder cần di đến chuyển không tồn tại !', 422);
+            }
+        }
+        if ($typeCheck == Status::FOLDER) {
+            $folderParent = $this->folder->GetByParent($folderParentId)->find($folderIdOrFileId);
+            $folder       = $this->folder->find($folderIdOrFileId);
+            if ( ! is_null($folderParent)) {
+                throw new ValidationException('Folder đã ở vị trí cần chuyển !', 422);
+            }
+            if (is_null($folder)) {
+                throw new ValidationException('Folder cần di chuyển không tồn tại !', 422);
+            }
+
+            $folder->parent_id = $folderParentId;
+            $folder->save();
+            return $this->successResponse(null, 'oke', 201);
+        }
+
+//        moved file
+
+        $file = $this->file->where('id', $folderIdOrFileId)->first();
+        if (is_null($file))
+        {
+            throw new ValidationException('file không tồn tại !', 422);
+        }
+        $file->folder_id = $folderParentId;
+        $file->save();
+        return $this->successResponse(null, 'oke', 201);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return Response
-     */
-    public function destroy($id)
+
+
+    public function deleteFolderOrFile(DeleteFolderOrFileRequest $request)
     {
-        //
+        $typeCheck      = $request->input('type_check');
+        $type           = $request->input('type');
+        $folderFileId   = $request->input('$folderFileId' , []);
+        dd($typeCheck , $type , $folderFileId);
     }
+
+
 }

@@ -5,18 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 
 class Folder extends Model
 {
-    use HasFactory;
+    use HasFactory , SoftDeletes;
     protected $table ='folders';
 
     protected $guarded = [];
-
 
     /**
      * @return BelongsTo
@@ -93,5 +92,49 @@ class Folder extends Model
         return $query->where('user_id' , Auth::id())->orWhereHas('users' , function ($query){
             $query->where('user_id', Auth::id());
         });
+    }
+
+    /**
+     * @param $query
+     * @param $parentIds
+     * @return mixed
+     */
+
+    public function scopeGetByParents($query , $parentIds)
+    {
+        return $query->whereIn('parent_id' , $parentIds);
+    }
+
+    /**
+     * @param $query
+     * @param $parentId
+     * @return mixed
+     */
+
+    public function scopeGetByParent($query , $parentId)
+    {
+        return $query->where('parent_id' , $parentId);
+    }
+
+    /**
+     * @param $query
+     * @param $ids
+     * @return mixed
+     */
+
+    public function scopeGetByIds($query , $ids)
+    {
+        return $query->whereIn('id' , $ids);
+    }
+
+    /**
+     * @param $query
+     * @param $id
+     * @return mixed
+     */
+
+    public function scopeGetById($query , $id)
+    {
+        return $query->where('id' , $id);
     }
 }

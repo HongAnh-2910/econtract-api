@@ -12,4 +12,6 @@ use BenSampo\Enum\Enum;
 final class Status extends Enum
 {
     const TRASHED =   1;
+    const FOLDER  = 'folder';
+    const FILE    = 'file';
 }
