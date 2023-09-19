@@ -26,6 +26,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -156,7 +157,11 @@ class FolderController extends Controller
         }
 //        share File
         $file = $this->file->where('id', $folderOrFileId)->first();
-        if ($file->users()->count() > 0 && count($shareUserIds) > 0) {
+        if (is_null($file))
+        {
+            throw new ValidationException('File không tồn tại', 422);
+        }
+        if ($file->users()->get()->whereIn('id' , $shareUserIds)->count() > 0) {
             throw new ValidationException('User được chọn đã có file này !', 422);
         }
         DB::beginTransaction();
@@ -165,7 +170,7 @@ class FolderController extends Controller
             DB::commit();
             return $this->successResponse(null, 'oke', 201);
         } catch (Exception $exception) {
-            DB::commit();
+            DB::rollBack();
             return $this->errorResponse('share file error', 500);
         }
     }
