@@ -19,11 +19,11 @@ return [
     'properties' => [
 
         'production' => [
-            'host'                  => env('RABBITMQ_HOST', 'localhost'),
-            'port'                  => env('RABBITMQ_PORT', 5672),
-            'username'              => env('RABBITMQ_USER', ''),
-            'password'              => env('RABBITMQ_PASSWORD', ''),
-            'vhost'                 => env('RABBITMQ_VHOST', '/'),
+            'host'                  => env('AMQP_HOST'),
+            'port'                  => env('AMQP_PORT', 5672),
+            'username'              => env('AMQP_USERNAME'),
+            'password'              => env('AMQP_PASSWORD'),
+            'vhost'                 => env('AMQP_VHOST'),
             'connect_options'       => [],
             'ssl_options'           => [],
 
@@ -43,16 +43,13 @@ return [
             'queue_auto_delete'     => false,
             'queue_nowait'          => false,
             'queue_properties'      => ['x-ha-policy' => ['S', 'all']],
-
             'consumer_tag'          => '',
             'consumer_no_local'     => false,
             'consumer_no_ack'       => false,
             'consumer_exclusive'    => false,
             'consumer_nowait'       => false,
-            'consumer_properties'   => [],
-            'timeout'               => 0,
-            'persistent'            => false,
-            'publish_timeout'       => 0, // Only applicable when a publish is marked as mandatory
+            'timeout'               => 30,
+            'persistent'            => true,
             'qos'                   => false,
             'qos_prefetch_size'     => 0,
             'qos_prefetch_count'    => 1,

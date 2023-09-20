@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Folder;
 use App\Services\FolderService\FolderServiceInterface;
+use Bschmitt\Amqp\Facades\Amqp;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,10 +31,8 @@ class ZipFileOrFolderDownload implements ShouldQueue
         $this->folder = $folder;
     }
 
-    /**
-     * @return void
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
-     */
+
+
     public function handle()
     {
         $zip           = new ZipArchive();

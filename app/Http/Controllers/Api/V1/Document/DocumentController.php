@@ -69,6 +69,17 @@ class DocumentController extends Controller
      */
     public function index(ListFolderAndFileRequest $request ,$id = null)
     {
+        Amqp::consume('queue-cancel-ticket', function ($message, $resolver) {
+           dd($message->body);
+            $resolver->acknowledge($message);
+        }, [
+            'exchange'            => 'exchange.download',
+            'routing'             => 'document.download',
+            'queue_force_declare' => true,
+            'vhost'               => 'qqrilbvp',
+            'persistent'          => true
+        ]);
+        die();
         $status = $request->input('status');
         if ($id) {
             $folder = $this->folder->ById($id)->first();
@@ -206,9 +217,16 @@ class DocumentController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
             $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
-            ZipFileOrFolderDownload::dispatchSync($nameFolderZip , $currentFolder);
-            return response()->download($nameFolderZip)->deleteFileAfterSend();
-//            return response()->download($nameFolderZip)->deleteFileAfterSend();
+//            Bus::batch([
+//                new   ZipFileOrFolderDownload($nameFolderZip , $currentFolder)
+//            ])
+//                ->then(function () use($nameFolderZip) {
+//                    return response()->download($nameFolderZip)->deleteFileAfterSend();
+//                })
+//                ->catch(function (){
+//                    throw new Exception('Looix');
+//                })->onConnection('redis')->dispatch();
+            ZipFileOrFolderDownload::dispatch($nameFolderZip , $currentFolder);
 //            try {
 //                $zip     = new ZipArchive();
 //                $path    = '';
