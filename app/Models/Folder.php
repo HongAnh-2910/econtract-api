@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\DocumentStatus;
+use App\Enums\TypeDelete;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -137,4 +139,40 @@ class Folder extends Model
     {
         return $query->where('id' , $id);
     }
+
+    /**
+     * @param $query
+     * @param $type
+     * @return mixed
+     */
+
+    public function scopeCheckTrashed($query , $type)
+    {
+        if ($type == TypeDelete::DELETE)
+        {
+            return $query->onlyTrashed();
+        }
+        return $query;
+    }
+
+    /**
+     * @param $status
+     * @param $query
+     * @return mixed
+     */
+
+    public function scopeFilterStatus($query , $status)
+    {
+        if ($status == DocumentStatus::TRASH) {
+            return $query->onlyTrashed()->ByUserIdOrUserIdShare();
+        } elseif ($status == DocumentStatus::ALL_PRIVATE) {
+            return $query->where('user_id', Auth::id());
+        } elseif ($status == DocumentStatus::SHARE) {
+            return $query->whereHas('users', function ($query) {
+                $query->where('user_id', Auth::id());
+            });
+        }
+        return $query->ByUserIdOrUserIdShare();
+    }
+
 }

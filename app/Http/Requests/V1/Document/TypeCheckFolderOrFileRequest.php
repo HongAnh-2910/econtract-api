@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Requests\V1\Folder;
+namespace App\Http\Requests\V1\Document;
 
-use App\Enums\TypeDelete;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class DeleteFolderOrFileRequest extends FormRequest
+class TypeCheckFolderOrFileRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -26,10 +25,7 @@ class DeleteFolderOrFileRequest extends FormRequest
     public function rules()
     {
         return [
-            'type_check'        => ['required', Rule::in(['folder', 'file'])],
-            'type'              => ['required', Rule::in(TypeDelete::SOFT_DELETE, TypeDelete::DELETE)],
-            'folder_file_ids'   => 'required|array',
-            'folder_file_ids.*' => 'required',
+            'type_check'      => ['required' , Rule::in(['folder' ,'file'])]
         ];
     }
 }

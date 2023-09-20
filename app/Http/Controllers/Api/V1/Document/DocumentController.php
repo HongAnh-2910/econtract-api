@@ -1,14 +1,18 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Folder;
+namespace App\Http\Controllers\Api\V1\Document;
 
+use App\Enums\DocumentStatus;
 use App\Enums\Status;
+use App\Enums\TypeDelete;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\V1\Folder\CreateFolderRequest;
-use App\Http\Requests\V1\Folder\DeleteFolderOrFileRequest;
-use App\Http\Requests\V1\Folder\RenameFolderRequest;
-use App\Http\Requests\V1\Folder\TypeCheckFolderOrFileRequest;
-use App\Http\Requests\V1\Folder\ShareFolderRequest;
+use App\Http\Requests\V1\Document\CreateFolderRequest;
+use App\Http\Requests\V1\Document\DeleteFolderOrFileRequest;
+use App\Http\Requests\V1\Document\ListFolderAndFileRequest;
+use App\Http\Requests\V1\Document\RenameFolderRequest;
+use App\Http\Requests\V1\Document\TypeCheckFolderOrFileRequest;
+use App\Http\Requests\V1\Document\ShareFolderRequest;
+use App\Http\Requests\V1\Document\TypeExportDocumentRequest;
 use App\Http\Resources\V1\Folder\FolderResource;
 use App\Http\Resources\V1\FolderFileResource;
 use App\Models\File;
@@ -20,9 +24,7 @@ use Dotenv\Exception\ValidationException;
 use Exception;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +32,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
 
-class FolderController extends Controller
+class DocumentController extends Controller
 {
     /**
      * @var Folder
@@ -60,8 +62,9 @@ class FolderController extends Controller
      * @param $id
      * @return AnonymousResourceCollection
      */
-    public function index($id = null)
+    public function index(ListFolderAndFileRequest $request ,$id = null)
     {
+        $status = $request->input('status');
         if ($id) {
             $folder = $this->folder->ById($id)->first();
             if (is_null($folder)) {
@@ -69,10 +72,11 @@ class FolderController extends Controller
             }
         }
         $folders      = $this->folder->GetByParent($id)->with('user', 'parent' ,'users')
-                                     ->ByUserIdOrUserIdShare()
-                                     ->get();
-        $files        = $this->file->with('user', 'folder' ,'users')->where('folder_id', $id)
-                                   ->ByUserIdOrUserIdShare()
+                                                       ->FilterStatus($status)
+                                                       ->get();
+        $files        = $this->file->with('user', 'folder' ,'users')
+                                   ->FilterStatus($status)
+                                   ->where('folder_id', $id)
                                    ->get();
         $folders      = $folders->map(function ($item) {
             $item['folder_id'] = $item->id;
@@ -276,14 +280,83 @@ class FolderController extends Controller
         return $this->successResponse(null, 'oke', 201);
     }
 
-
+    /**
+     * @param  DeleteFolderOrFileRequest  $request
+     * @return JsonResponse
+     */
 
     public function deleteFolderOrFile(DeleteFolderOrFileRequest $request)
     {
-        $typeCheck      = $request->input('type_check');
-        $type           = $request->input('type');
-        $folderFileId   = $request->input('$folderFileId' , []);
-        dd($typeCheck , $type , $folderFileId);
+        $type = $request->input('type' , TypeDelete::SOFT_DELETE);
+        $folderFileId   = $request->input('folder_file_ids' , []);
+        $folderFileId   = collect($folderFileId)->groupBy('type_check');
+        $folderTypeId = data_get($folderFileId , Status::FOLDER ,[]);
+        $fileTypeId =  data_get($folderFileId , Status::FILE , []);
+        DB::beginTransaction();
+        try {
+            if (count($folderTypeId) > 0)
+            {
+                $folders = $this->folder->CheckTrashed($type)->GetByIds(collect($folderTypeId)->pluck('id'));
+                $folders->each(function ($folder) use ($type) {
+                    if ($type == TypeDelete::SOFT_DELETE)
+                    {
+                        $folder->delete();
+                    }else
+                    {
+                        $folder->withTrashed()->forceDelete();
+                    }
+                });
+            }
+
+            if (count($fileTypeId) >0)
+            {
+                $files = $this->file->CheckTrashed($type)->GetByIds(collect($fileTypeId)->pluck('id'));
+                $files->each(function ($file) use ($type) {
+                    if ($type == TypeDelete::SOFT_DELETE)
+                    {
+                        $file->delete();
+                    }else
+                    {
+                        $file->withTrashed()->forceDelete();
+                    }
+                });
+            }
+            DB::commit();
+            return $this->successResponse(null, 'oke', 201);
+        }catch (DomainException $exception)
+        {
+            DB::rollBack();
+            return  $this->errorResponse('Lỗi delete folder' , 500);
+        }
+
+    }
+
+    /**
+     * @param  TypeExportDocumentRequest  $request
+     * @return BinaryFileResponse
+     * @throws BindingResolutionException
+     */
+
+    public function exportDocument(TypeExportDocumentRequest $request)
+    {
+        $extends       = $request->input('type', 'rar');
+        $folders       = $this->folder->where('user_id', Auth::id())->get();
+        $nameFolderZip = time().'-export.'.$extends;
+        try {
+            $zip     = new ZipArchive();
+            $zipFile = app()->make(FolderServiceInterface::class);
+            if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+                foreach ($folders as $folder) {
+                    $path = $folder->name.'/';
+                    $zipFile->zipToFileAndFolder($zip, $path, $folder);
+                }
+                $zip->close();
+            }
+            return response()->download($nameFolderZip)->deleteFileAfterSend();
+
+        } catch (DomainException $exception) {
+            throw new DomainException($exception->getMessage(), 500);
+        }
     }
 
 

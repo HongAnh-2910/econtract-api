@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Department\DepartmentController;
     use App\Http\Controllers\Api\V1\File\FileController;
-    use App\Http\Controllers\Api\V1\Folder\FolderController;
+    use App\Http\Controllers\Api\V1\Document\DocumentController;
     use App\Http\Controllers\Api\V1\Member\MemberController;
     use App\Http\Controllers\Api\V1\Menu\MenuController;
 use Illuminate\Http\Request;
@@ -42,20 +42,20 @@ Route::prefix('v1/contract')->group(function (){
 
         Route::resource('member' , MemberController::class)->except('update');
         Route::post('member/{user}' , [MemberController::class ,'update']);
-
-        Route::resource('folder' , FolderController::class)->except('store' , 'show' ,'destroy');
-        Route::prefix('folder')->group(function () {
-            Route::post('{id?}', [FolderController::class, 'store']);
-            Route::get('{id?}', [FolderController::class, 'index']);
-            Route::post('share-folder-or-file/{folderIdOrFileId}', [FolderController::class, 'shareFolderOrFile']);
+        Route::prefix('document')->group(function () {
+            Route::post('share-folder-or-file/{folderIdOrFileId}', [DocumentController::class, 'shareFolderOrFile']);
             Route::post('download-folder-or-file/{folderIdOrFileId}',
-                [FolderController::class, 'downloadFolderOrFile']);
+                [DocumentController::class, 'downloadFolderOrFile']);
             Route::patch('rename-folder/{folder}',
-                [FolderController::class, 'renameFolder']);
+                [DocumentController::class, 'renameFolder']);
             Route::patch('moved-folder-or-file/{folderIdOrFileId}',
-                [FolderController::class, 'movedFolderOrFile']);
+                [DocumentController::class, 'movedFolderOrFile']);
             Route::delete('delete-folder-or-file',
-                [FolderController::class, 'movedFolderOrFile']);
+                [DocumentController::class, 'deleteFolderOrFile']);
+            Route::post('export-document',
+                [DocumentController::class, 'exportDocument']);
+            Route::post('{id?}', [DocumentController::class, 'store']);
+            Route::get('{id?}', [DocumentController::class, 'index']);
         });
 
         Route::resource('file' , FileController::class);

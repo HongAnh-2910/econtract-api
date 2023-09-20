@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Requests\V1\Folder;
+namespace App\Http\Requests\V1\Document;
 
+use App\Enums\DocumentStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class RenameFolderRequest extends FormRequest
+class ListFolderAndFileRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -25,7 +26,9 @@ class RenameFolderRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' =>['required' , Rule::unique('folders')->ignore($this->folder->id)]
+            'status' => ['nullable',
+                Rule::in(DocumentStatus::ALL, DocumentStatus::TRASH, DocumentStatus::ALL_PRIVATE,
+                    DocumentStatus::SHARE)]
         ];
     }
 }
