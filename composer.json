@@ -8,6 +8,7 @@
         "php": "^7.4|^8.0",
         "ext-zip": "*",
         "bensampo/laravel-enum": "^4.2",
+        "bschmitt/laravel-amqp": "^2.1",
         "doctrine/dbal": "^3.6",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",

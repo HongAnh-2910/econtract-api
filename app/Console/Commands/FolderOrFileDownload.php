@@ -42,7 +42,7 @@ class FolderOrFileDownload extends Command
      */
     public function handle()
     {
-        $folderId = 2;
+        $folderId = 4;
         $currentFolder = $this->folder->where('id', $folderId)->first();
         if (is_null($currentFolder)) {
             throw new ValidationException('Folder không tồn tại', 500);

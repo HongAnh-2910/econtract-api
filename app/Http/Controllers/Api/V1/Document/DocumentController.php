@@ -15,22 +15,27 @@ use App\Http\Requests\V1\Document\ShareFolderRequest;
 use App\Http\Requests\V1\Document\TypeExportDocumentRequest;
 use App\Http\Resources\V1\Folder\FolderResource;
 use App\Http\Resources\V1\FolderFileResource;
+use App\Jobs\ZipFileOrFolderDownload;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
 use App\Services\FolderService\FolderServiceInterface;
+use Bschmitt\Amqp\Facades\Amqp;
 use DomainException;
 use Dotenv\Exception\ValidationException;
 use Exception;
+use GuzzleHttp\Client;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use ZipArchive;
+use Psr\Http\Message\ResponseInterface;
 
 class DocumentController extends Controller
 {
@@ -182,6 +187,17 @@ class DocumentController extends Controller
      */
     public function downloadFolderOrFile(TypeCheckFolderOrFileRequest $request , $folderIdOrFileId)
     {
+        ;
+//        Amqp::publish('file.*', 'message' , ['queue' => 'queue-file' ,'exchange' => 'exchange.file']);
+//        Amqp::consume('queue-file' , function ($message, $resolver){
+//            $resolver->acknowledge($message);
+//        } , [
+//            'vhost'               => 'qqrilbvp',
+//            'persistent'          => true,
+//            'queue_force_declare' => true,
+//            'routing'             => 'file.*',
+//            'exchange'            => 'exchange.file'
+//        ]);
         $typeCheck     = $request->input('type_check');
         if ($typeCheck == Status::FOLDER)
         {
@@ -190,19 +206,22 @@ class DocumentController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
             $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
-            try {
-                $zip     = new ZipArchive();
-                $path    = '';
-                $zipFile = app()->make(FolderServiceInterface::class);
-                if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
-                    $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
-                    $zip->close();
-                }
-                return response()->download($nameFolderZip)->deleteFileAfterSend();
-
-            } catch (DomainException $exception) {
-                throw new DomainException($exception->getMessage(), 500);
-            }
+            ZipFileOrFolderDownload::dispatchSync($nameFolderZip , $currentFolder);
+            return response()->download($nameFolderZip)->deleteFileAfterSend();
+//            return response()->download($nameFolderZip)->deleteFileAfterSend();
+//            try {
+//                $zip     = new ZipArchive();
+//                $path    = '';
+//                $zipFile = app()->make(FolderServiceInterface::class);
+//                if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+//                    $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
+//                    $zip->close();
+//                }
+//                return response()->download($nameFolderZip)->deleteFileAfterSend();
+//
+//            } catch (DomainException $exception) {
+//                throw new DomainException($exception->getMessage(), 500);
+//            }
         }
 
 //        download file
