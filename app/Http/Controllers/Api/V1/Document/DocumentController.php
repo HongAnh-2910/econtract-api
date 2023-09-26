@@ -64,22 +64,12 @@ class DocumentController extends Controller
     }
 
     /**
+     * @param ListFolderAndFileRequest $request
      * @param $id
      * @return AnonymousResourceCollection
      */
     public function index(ListFolderAndFileRequest $request ,$id = null)
     {
-        Amqp::consume('queue-cancel-ticket', function ($message, $resolver) {
-           dd($message->body);
-            $resolver->acknowledge($message);
-        }, [
-            'exchange'            => 'exchange.download',
-            'routing'             => 'document.download',
-            'queue_force_declare' => true,
-            'vhost'               => 'qqrilbvp',
-            'persistent'          => true
-        ]);
-        die();
         $status = $request->input('status');
         if ($id) {
             $folder = $this->folder->ById($id)->first();
@@ -198,17 +188,6 @@ class DocumentController extends Controller
      */
     public function downloadFolderOrFile(TypeCheckFolderOrFileRequest $request , $folderIdOrFileId)
     {
-        ;
-//        Amqp::publish('file.*', 'message' , ['queue' => 'queue-file' ,'exchange' => 'exchange.file']);
-//        Amqp::consume('queue-file' , function ($message, $resolver){
-//            $resolver->acknowledge($message);
-//        } , [
-//            'vhost'               => 'qqrilbvp',
-//            'persistent'          => true,
-//            'queue_force_declare' => true,
-//            'routing'             => 'file.*',
-//            'exchange'            => 'exchange.file'
-//        ]);
         $typeCheck     = $request->input('type_check');
         if ($typeCheck == Status::FOLDER)
         {
@@ -217,29 +196,19 @@ class DocumentController extends Controller
                 throw new ValidationException('Folder không tồn tại', 422);
             }
             $nameFolderZip = time().'-'.$currentFolder->name.'.zip';
-//            Bus::batch([
-//                new   ZipFileOrFolderDownload($nameFolderZip , $currentFolder)
-//            ])
-//                ->then(function () use($nameFolderZip) {
-//                    return response()->download($nameFolderZip)->deleteFileAfterSend();
-//                })
-//                ->catch(function (){
-//                    throw new Exception('Looix');
-//                })->onConnection('redis')->dispatch();
-            ZipFileOrFolderDownload::dispatch($nameFolderZip , $currentFolder);
-//            try {
-//                $zip     = new ZipArchive();
-//                $path    = '';
-//                $zipFile = app()->make(FolderServiceInterface::class);
-//                if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
-//                    $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
-//                    $zip->close();
-//                }
-//                return response()->download($nameFolderZip)->deleteFileAfterSend();
-//
-//            } catch (DomainException $exception) {
-//                throw new DomainException($exception->getMessage(), 500);
-//            }
+            try {
+                $zip     = new ZipArchive();
+                $path    = '';
+                $zipFile = app()->make(FolderServiceInterface::class);
+                if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
+                    $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
+                    $zip->close();
+                }
+                return response()->download($nameFolderZip)->deleteFileAfterSend();
+
+            } catch (DomainException $exception) {
+                throw new DomainException($exception->getMessage(), 500);
+            }
         }
 
 //        download file

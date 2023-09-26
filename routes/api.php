@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Application\ApplicationController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Department\DepartmentController;
     use App\Http\Controllers\Api\V1\File\FileController;
@@ -42,6 +43,8 @@ Route::prefix('v1/contract')->group(function (){
 
         Route::resource('member' , MemberController::class)->except('update');
         Route::post('member/{user}' , [MemberController::class ,'update']);
+
+
         Route::prefix('document')->group(function () {
             Route::post('share-folder-or-file/{folderIdOrFileId}', [DocumentController::class, 'shareFolderOrFile']);
             Route::post('download-folder-or-file/{folderIdOrFileId}',
@@ -60,5 +63,9 @@ Route::prefix('v1/contract')->group(function (){
 
         Route::resource('file' , FileController::class);
         Route::post('file/upload/{folderId?}',[FileController::class ,'uploadFileFolder']);
+
+        Route::prefix('application')->group(function (){
+            Route::post('store', [ApplicationController::class ,'store']);
+        });
     });
 });
