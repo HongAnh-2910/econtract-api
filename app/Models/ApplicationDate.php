@@ -12,6 +12,8 @@ class ApplicationDate extends Model
     protected $table ='date_time_of_applications';
     public $primaryKey = 'id';
 
+    protected $guarded = [];
+
     /**
      * @return BelongsTo
      */

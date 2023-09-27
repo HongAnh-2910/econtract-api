@@ -26,10 +26,10 @@ class ApplicationStoreRequest extends FormRequest
     {
         return [
             'reason' => 'required|string',
-            'application_type' => 'required|string',
+            'application_type' => 'required|digits_between:1,7|numeric',
             'date_rest' => 'required|array',
-            'date_rest.*.date_from' => 'required|date',
-            'date_rest.*.date_to' => 'required|date|after_or_equal:date_rest.*.date_from',
+            'date_rest.*.information_day_2' => 'required|date',
+            'date_rest.*.information_day_4' => 'required|date|after_or_equal:date_rest.*.date_from',
             'des' => 'required|string',
             'user_id' => ['required' , new UserIssetDatabase()],
             'user_follows' => 'nullable|array',
