@@ -7,8 +7,8 @@ use App\Enums\ApplicationStatus;
 use App\Events\HandleSendMailApplication;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Application\ApplicationStoreRequest;
+use App\Http\Resources\V1\Application\ApplicationResource;
 use App\Models\Application;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +29,13 @@ class ApplicationController extends Controller
         $this->application = $application;
     }
 
+
+    /**
+     * @param ApplicationStoreRequest $request
+     * @return ApplicationResource
+     * @throws \Exception
+     */
+
     public function store(ApplicationStoreRequest $request)
     {
         $reason = $request->input('reason');
@@ -36,41 +43,39 @@ class ApplicationController extends Controller
         $des = $request->input('des');
         $userId = $request->input('user_id');
         $userFollows = $request->input('user_follows');
-        $applicationType = $request->input('application_type' ,ApplicationReason::SICK_LEAVE);
+        $applicationType = $request->input('application_type', ApplicationReason::SICK_LEAVE);
         $nameFile = "";
         DB::beginTransaction();
         try {
-            if ($request->hasFile('file'))
-            {
+            if ($request->hasFile('file')) {
                 $file = $request->file('file');
-                $nameFile = time().'-'.$file->getClientOriginalName();
-                handleUploadFile($file ,Storage::path('public/files') ,$nameFile);
+                $nameFile = time() . '-' . $file->getClientOriginalName();
+                handleUploadFile($file, Storage::path('public/files'), $nameFile);
             }
             $data = [
-                'code' => 'ONESIGN-'.rand(0, 99999),
+                'code' => 'ONESIGN-' . rand(0, 99999),
                 'status' => ApplicationStatus::PENDING,
                 'name' => Auth::user()->name,
                 'reason' => $reason,
                 'application_type' => $applicationType,
                 'position' => 'develop',
                 'user_id' => $userId,
-                'description' =>$des,
-                'files' => !empty($nameFile)?$nameFile:'0',
-                'user_application' => Auth::id()
+                'description' => $des,
+                'files' => !empty($nameFile) ? $nameFile : '0',
+                'user_application' => Auth::id(),
+                'type' => ApplicationStatus::CREATE_APPLICATION
             ];
             $application = $this->application::create($data);
             $application->dateTimeApplications()->createMany($dateRests);
-            if (count($userFollows) > 0)
-            {
+            if (count($userFollows) > 0) {
                 $application->users()->attach($userFollows);
             }
             DB::commit();
             event(new HandleSendMailApplication($application));
-            return $application->load('user' ,'users');
-        }catch (\Exception $exception)
-        {
+            return new ApplicationResource($application->load('user', 'users' ,'userCreateApplication' ,'dateTimeApplications'));
+        } catch (\Exception $exception) {
             DB::rollBack();
-            throw  new  \Exception($exception->getMessage());
+            throw new \Exception($exception->getMessage());
         }
     }
 }

@@ -12,5 +12,7 @@ use BenSampo\Enum\Enum;
 final class ApplicationStatus extends Enum
 {
     const PENDING =  'Chờ duyệt';
+    const CREATE_APPLICATION = 1;
+    const CREATE_SUGGESTION = 2;
 
 }
