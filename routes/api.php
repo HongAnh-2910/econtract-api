@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\Application\ApplicationController;
+use App\Http\Controllers\Api\V1\Application\ApplicationController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Department\DepartmentController;
     use App\Http\Controllers\Api\V1\File\FileController;
@@ -66,6 +66,7 @@ Route::prefix('v1/contract')->group(function (){
 
         Route::prefix('application')->group(function (){
             Route::post('store', [ApplicationController::class ,'store']);
+            Route::post('update-state/{application}', [ApplicationController::class ,'updateState']);
         });
     });
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1\Application;
 
 use App\Enums\ApplicationReason;
+use App\Enums\ApplicationStatus;
 use App\Http\Resources\V1\User\UserResource;
 use Carbon\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,21 +36,22 @@ class ApplicationResource extends JsonResource
             }
         }
         return [
-            'code' => $this->code,
-            'name' => $this->name,
-            'status' => $this->status,
-            'reason' => $this->reason,
+            'code'             => $this->code,
+            'name'             => $this->name,
+            'status'           => ApplicationStatus::getStatusApplication($this->status),
+            'reason'           => $this->reason,
             'application_type' => ApplicationReason::DATA[$this->application_type],
-            'department_id' => $this->department_id,
-            'position' => $this->position,
-            'day' => $day,
-            'user' => new UserResource($this->whenLoaded('user')),
-            'description' => $this->description,
-            'file' => $this->when($this->files != 0, function () {
-                return asset(config('pathUploadFile.path_file') . '/' . $this->files);
+            'department_id'    => $this->department_id,
+            'position'         => $this->position,
+            'day'              => $day,
+            'user'             => new UserResource($this->whenLoaded('user')),
+            'description'      => $this->description,
+            'file'             => $this->when($this->files != 0, function () {
+                return asset(config('pathUploadFile.path_file').'/'.$this->files);
             }),
-            'created_at' => Carbon::parse($this->created_at)->format('Y-m-d'),
-            'user_create' => new UserResource($this->whenLoaded('userCreateApplication'))
+            'created_at'       => Carbon::parse($this->created_at)->format('Y-m-d'),
+            'user_create'      => new UserResource($this->whenLoaded('userCreateApplication')),
+            'type'             => ApplicationStatus::getApplicationByKey($this->type)
         ];
     }
 }

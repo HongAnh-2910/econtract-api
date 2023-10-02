@@ -233,6 +233,7 @@
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
         'Amqp' => \Bschmitt\Amqp\Facades\Amqp::class,
+        'default_transition' => Spatie\ModelStates\DefaultTransition::class,
 
     ],
 
