@@ -1,6 +1,8 @@
 <?php
 
-return [
+    use Bschmitt\Amqp\AmqpServiceProvider;
+
+    return [
 
     /*
     |--------------------------------------------------------------------------
@@ -67,7 +69,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Ho_Chi_Minh',
 
     /*
     |--------------------------------------------------------------------------
@@ -165,6 +167,7 @@ return [
         /*
          * Package Service Providers...
          */
+        AmqpServiceProvider::class,
 
         /*
          * Application Service Providers...
@@ -229,6 +232,8 @@ return [
         'URL' => Illuminate\Support\Facades\URL::class,
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
+        'Amqp' => \Bschmitt\Amqp\Facades\Amqp::class,
+        'default_transition' => Spatie\ModelStates\DefaultTransition::class,
 
     ],
 

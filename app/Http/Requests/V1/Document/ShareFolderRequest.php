@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Http\Requests\V1\Folder;
+namespace App\Http\Requests\V1\Document;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class CreateFolderRequest extends FormRequest
+class ShareFolderRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,7 +25,8 @@ class CreateFolderRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' =>'required|unique:folders,name'
+            'user_share_ids'  => 'required|array',
+            'type_check'      => ['required' , Rule::in(['folder' ,'file'])]
         ];
     }
 }

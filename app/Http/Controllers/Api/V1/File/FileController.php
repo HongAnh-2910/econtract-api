@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\File;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\File\UploadFileRequest;
 use App\Models\File;
+use App\Models\Folder;
 use App\Models\User;
 use Dotenv\Exception\ValidationException;
 use Illuminate\Http\Request;
@@ -25,10 +26,13 @@ class FileController extends Controller
 
     protected User $user;
 
-    public function __construct(File $file , User $user)
+    protected Folder $folder;
+
+    public function __construct(File $file , User $user , Folder  $folder)
     {
         $this->file = $file;
         $this->user = $user;
+        $this->folder = $folder;
     }
 
     /**
@@ -52,6 +56,15 @@ class FileController extends Controller
     {
         $userShareId = $request->input('user_share_ids' ,[]);
         $fileIds = [];
+        if ($folderId)
+        {
+           $folder = $this->folder->findOrFail($folderId);
+           if (is_null($folder))
+           {
+               throw new ValidationException("Folder khong ton tai");
+           }
+
+        }
         DB::beginTransaction();
         try {
             if ($request->hasFile('files'))
@@ -73,7 +86,6 @@ class FileController extends Controller
                     handleUploadFile($file ,Storage::path('public/files') ,$name);
                 }
                 $users = $this->user->whereIn('id' , $userShareId)->get();
-
                 if ($users->count() > 0)
                 {
                     foreach ($users as  $user)

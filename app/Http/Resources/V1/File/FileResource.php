@@ -34,7 +34,8 @@ class FileResource extends JsonResource
             'size'              => $this->size,
             'upload_st'         => $this->upload_st,
             'contract_id'       => $this->contract_id,
-            'file_soft_deleted' => $this->file_soft_deleted
+            'file_soft_deleted' => $this->file_soft_deleted,
+            'created_at'        => $this->created_at
         ];
     }
 }
