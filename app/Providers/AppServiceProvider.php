@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\FileService\FileService;
+use App\Services\FileService\FileServiceInterface;
 use App\Services\FolderService\FolderService;
 use App\Services\FolderService\FolderServiceInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->bind(FolderServiceInterface::class , FolderService::class);
+        $this->app->singleton(FolderServiceInterface::class , FolderService::class);
+        $this->app->singleton(FileServiceInterface::class , FileService::class);
     }
 
     /**
