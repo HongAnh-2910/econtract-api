@@ -6,8 +6,9 @@
 
     class Pending extends ApplicationState
     {
-        public function status()
-        {
-            return ApplicationStatus::PENDING;
-        }
+        public static $name = ApplicationStatus::PENDING;
+//        public function status():string
+//        {
+//            return  (string)ApplicationStatus::PENDING;
+//        }
     }

@@ -3,6 +3,7 @@
 namespace App\Enums;
 
 use BenSampo\Enum\Enum;
+use Illuminate\Support\Arr;
 
 /**
  * @method static static OptionOne()
@@ -56,4 +57,14 @@ final class ApplicationReason extends Enum
             'note' => 'Tối đa: 10 Ngày/ Năm'
         ]
     ];
+
+    /**
+     * @param $key
+     * @return array|\ArrayAccess|mixed
+     */
+
+    static function getApplicationReason($key)
+    {
+        return data_get(self::DATA , $key);
+    }
 }

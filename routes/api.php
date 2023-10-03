@@ -67,6 +67,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::prefix('application')->group(function (){
             Route::post('store', [ApplicationController::class ,'store']);
             Route::post('update-state/{application}', [ApplicationController::class ,'updateState']);
+            Route::post('store-proposal', [ApplicationController::class ,'storeProposal']);
         });
     });
 });

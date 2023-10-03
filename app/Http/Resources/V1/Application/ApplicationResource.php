@@ -4,6 +4,7 @@ namespace App\Http\Resources\V1\Application;
 
 use App\Enums\ApplicationReason;
 use App\Enums\ApplicationStatus;
+use App\Http\Resources\V1\File\FileResource;
 use App\Http\Resources\V1\User\UserResource;
 use Carbon\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -36,22 +37,21 @@ class ApplicationResource extends JsonResource
             }
         }
         return [
-            'code'             => $this->code,
-            'name'             => $this->name,
-            'status'           => ApplicationStatus::getStatusApplication($this->status),
-            'reason'           => $this->reason,
-            'application_type' => ApplicationReason::DATA[$this->application_type],
-            'department_id'    => $this->department_id,
-            'position'         => $this->position,
-            'day'              => $day,
-            'user'             => new UserResource($this->whenLoaded('user')),
-            'description'      => $this->description,
-            'file'             => $this->when($this->files != 0, function () {
-                return asset(config('pathUploadFile.path_file').'/'.$this->files);
-            }),
-            'created_at'       => Carbon::parse($this->created_at)->format('Y-m-d'),
-            'user_create'      => new UserResource($this->whenLoaded('userCreateApplication')),
-            'type'             => ApplicationStatus::getApplicationByKey($this->type)
+            'id'                      => $this->id,
+            'code'                    => $this->code,
+            'name'                    => $this->name,
+            'status'                  => ApplicationStatus::getStatusApplication($this->status->getValue()),
+            'reason'                  => $this->reason,
+            'type_reason_application' => ApplicationReason::getApplicationReason($this->application_type),
+            'department_id'           => $this->department_id,
+            'position'                => $this->position,
+            'day'                     => $day,
+            'user'                    => new UserResource($this->whenLoaded('user')),
+            'description'             => $this->description,
+            'files'                   => FileResource::collection($this->whenLoaded('applicationFiles')),
+            'created_at'              => Carbon::parse($this->created_at)->format('Y-m-d'),
+            'user_create'             => new UserResource($this->whenLoaded('userCreateApplication')),
+            'type_create'             => ApplicationStatus::getApplicationByKey($this->type)
         ];
     }
 }

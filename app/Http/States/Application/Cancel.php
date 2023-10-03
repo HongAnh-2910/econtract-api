@@ -6,8 +6,9 @@
 
     class Cancel extends ApplicationState
     {
-        public function status()
-        {
-            return ApplicationStatus::CANCEL;
-        }
+        public static $name = ApplicationStatus::CANCEL;
+//        public function status():string
+//        {
+//            return (string)ApplicationStatus::CANCEL;
+//        }
     }

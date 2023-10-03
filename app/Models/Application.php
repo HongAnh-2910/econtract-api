@@ -55,6 +55,15 @@ class Application extends Model
     }
 
     /**
+     * @return BelongsToMany
+     */
+
+    public function applicationFiles()
+    {
+        return $this->belongsToMany(File::class ,'file_application' ,'application_id' ,'file_id');
+    }
+
+    /**
      * @return BelongsTo
      */
 

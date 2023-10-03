@@ -26,6 +26,7 @@ class FileResource extends JsonResource
             'path'              => $this->path,
             'type'              => $this->type,
             'image_type'        => checkExtensionFileGetImgType($this->type),
+            'link_file'         => asset(config('pathUploadFile.path_file').'/'.$this->name),
             'date_create'       => Carbon::parse($this->created_at)->format('d-m-Y'),
             'user_id'           => $this->user_id,
             'user'              => new UserResource($this->whenLoaded('user')),

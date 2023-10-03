@@ -53,7 +53,7 @@ final class ApplicationStatus extends Enum
 
     static function getApplicationByKey($key)
     {
-        return Arr::get(self::IS_APPLICATION ,$key);
+        return data_get(self::IS_APPLICATION ,$key);
     }
 
     /**
@@ -63,7 +63,7 @@ final class ApplicationStatus extends Enum
 
     static function getStatusApplication($status)
     {
-        return Arr::get(self::STATUS_APPLICATION ,$status);
+        return data_get(self::STATUS_APPLICATION ,$status);
     }
 
 }

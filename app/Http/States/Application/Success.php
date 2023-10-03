@@ -6,8 +6,9 @@
 
     class Success extends ApplicationState
     {
-        public function status()
-        {
-           return ApplicationStatus::SUCCESS;
-        }
+        public static $name = ApplicationStatus::SUCCESS;
+//        public function status():string
+//        {
+//           return (string) ApplicationStatus::SUCCESS;
+//        }
     }
