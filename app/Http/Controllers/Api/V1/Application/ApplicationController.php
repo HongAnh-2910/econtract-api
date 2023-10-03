@@ -122,6 +122,15 @@
 
         public function storeProposal(StoreProposalApplicationRequest $request)
         {
+            $proposalName = $request->input('proposal_name');
+            $proponent = $request->input('proponent');
+            $priceProposal = $request->input('price_proposal');
+            $accountInformation = $request->input('account_information');
+            $deliveryTime = $request->input('delivery_time');
+            $deliveryDate = $request->input('delivery_date');
+            $applicationType = $request->input('application_type');
+            $userId = $request->input('user_id');
+
             $body = $request->validated();
 
             $data = $this->bodyCreateApplication('ONESIGN-'.rand(0, 99999), ApplicationStatus::PENDING,
