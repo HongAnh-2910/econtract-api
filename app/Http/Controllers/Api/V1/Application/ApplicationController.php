@@ -7,11 +7,15 @@
     use App\Events\HandleSendMailApplication;
     use App\Http\Controllers\Controller;
     use App\Http\Requests\V1\Application\ApplicationStoreRequest;
+    use App\Http\Requests\V1\Application\IndexApplicationRequest;
     use App\Http\Requests\V1\Application\StoreProposalApplicationRequest;
     use App\Http\Requests\V1\Application\UpdateStateApplicationRequest;
     use App\Http\Resources\V1\Application\ApplicationResource;
+    use App\Http\Resources\V1\Application\ProposalApplicationResource;
     use App\Models\Application;
     use App\Models\File;
+    use App\Services\FileService\FileServiceInterface;
+    use Dotenv\Exception\ValidationException;
     use Illuminate\Support\Facades\Auth;
     use Illuminate\Support\Facades\DB;
     use Illuminate\Support\Facades\Storage;
@@ -43,46 +47,32 @@
         /**
          * @param  ApplicationStoreRequest  $request
          * @return ApplicationResource
-         * @throws \Exception
+         * @throws \Illuminate\Contracts\Container\BindingResolutionException
          */
 
         public function store(ApplicationStoreRequest $request)
         {
-            $reason          = $request->input('reason');
-            $dateRests       = $request->input('date_rest', []);
-            $des             = $request->input('des');
-            $userId          = $request->input('user_id');
-            $userFollows     = $request->input('user_follows');
-            $applicationType = $request->input('application_type', ApplicationReason::SICK_LEAVE);
+            $reason                      = $request->input('reason');
+            $dateRests                   = $request->input('date_rest', []);
+            $des                         = $request->input('des');
+            $userId                      = $request->input('user_id');
+            $userFollows                 = $request->input('user_follows');
+            $applicationType             = $request->input('application_type', ApplicationReason::SICK_LEAVE);
+            $uploadFileCreateApplication = app()->make(FileServiceInterface::class);
+            $data        = $this->bodyCreateApplication('ONESIGN-'.rand(0, 99999), ApplicationStatus::PENDING,
+                Auth::user()->name, $reason, $applicationType, 'develop', $userId, $des, Auth::id(),
+                ApplicationStatus::CREATE_APPLICATION);
             DB::beginTransaction();
-            $fileIds = [];
             $nameFiles = [];
             try {
-                if ($request->hasFile('files')) {
-                    foreach ($request->file('files') as $file)
-                    {
-                        $name = time().'-'.$file->getClientOriginalName();
-                        $nameFiles[] = $name;
-                        $storage = floor((int) $file->getSize() / 1024);
-                        $extension = $file->getClientOriginalExtension();
-                        handleUploadFile($file ,Storage::path('public/files') ,$name);
-                        $fileInstance =$this->file->create([
-                            'name' => $name,
-                            'path' => $name,
-                            'type' => $extension,
-                            'user_id' => Auth::id(),
-                            'folder_id' => null,
-                            'size' => $storage,
-                            'upload_st' => 'upload_applications'
-                        ]);
-                        $fileIds[] = $fileInstance->id;
-                    }
-                }
-                $data = $this->bodyCreateApplication('ONESIGN-'.rand(0, 99999), ApplicationStatus::PENDING,
-                    Auth::user()->name, $reason, $applicationType, 'develop', $userId, $des, Auth::id(),
-                    ApplicationStatus::CREATE_APPLICATION);
                 $application = $this->application::create($data);
-                $application->files()->syncWithoutDetaching($fileIds);
+
+                if ($request->hasFile('files')) {
+                    $dataFile  = $uploadFileCreateApplication->uploadMultipleFileAndCreateDatabase($request,
+                        'upload_applications');
+                    $nameFiles = $dataFile['nameFiles'];
+                    $application->applicationFiles()->syncWithoutDetaching($dataFile['fileIds']);
+                }
                 $application->dateTimeApplications()->createMany($dateRests);
                 if (count($userFollows) > 0) {
                     $application->users()->attach($userFollows);
@@ -90,12 +80,13 @@
                 DB::commit();
                 event(new HandleSendMailApplication($application));
                 return new ApplicationResource($application->load('user', 'users', 'userCreateApplication',
-                    'dateTimeApplications' , 'applicationFiles'));
+                    'dateTimeApplications', 'applicationFiles'));
             } catch (\Exception $exception) {
                 DB::rollBack();
-                foreach ($nameFiles as $nameFile)
-                {
-                    handleRemoveFile(config('pathUploadFile.path_file'), $nameFile);
+                if (count($nameFiles) > 0) {
+                    foreach ($nameFiles as $nameFile) {
+                        handleRemoveFile(config('pathUploadFile.path_file'), $nameFile);
+                    }
                 }
                 throw new \Exception($exception->getMessage());
             }
@@ -111,6 +102,15 @@
         public function updateState(UpdateStateApplicationRequest $request, Application $application)
         {
             $status = $request->input('status');
+            $check = $application->users()->where('user_id' , Auth::id())->first();
+            if (!is_null($check))
+            {
+                throw new ValidationException('User follow không được cập nhật trạng thái !');
+            }
+            if (is_null($application->where('user_id' , Auth::id())->first()))
+            {
+                throw new ValidationException('Bạn không phải user được gán là người kiểm duyệt');
+            }
             try {
                 $application = $application->status->transitionTo($status);
                 return new ApplicationResource($application->load('user', 'users', 'userCreateApplication',
@@ -120,62 +120,86 @@
             }
         }
 
+        /**
+         * @param  StoreProposalApplicationRequest  $request
+         * @return ProposalApplicationResource
+         * @throws \Illuminate\Contracts\Container\BindingResolutionException
+         */
+
         public function storeProposal(StoreProposalApplicationRequest $request)
         {
-            $proposalName = $request->input('proposal_name');
-            $proponent = $request->input('proponent');
-            $priceProposal = $request->input('price_proposal');
+            $proposalName       = $request->input('proposal_name');
+            $proponent          = $request->input('proponent');
+            $priceProposal      = $request->input('price_proposal');
             $accountInformation = $request->input('account_information');
-            $deliveryTime = $request->input('delivery_time');
-            $deliveryDate = $request->input('delivery_date');
-            $applicationType = $request->input('application_type');
-            $userId = $request->input('user_id');
-
-            $body = $request->validated();
-
-            $data = $this->bodyCreateApplication('ONESIGN-'.rand(0, 99999), ApplicationStatus::PENDING,
-                Auth::user()->name, '', $body['application_type'], 'develop', $body['user_id'], '', Auth::id(),
+            $deliveryTime       = $request->input('delivery_time');
+            $deliveryDate       = $request->input('delivery_date');
+            $applicationType    = $request->input('application_type');
+            $userId             = $request->input('user_id');
+            $userFollows                 = $request->input('user_follows');
+            $uploadFileCreateApplication = app()->make(FileServiceInterface::class);
+            $data                        = $this->bodyCreateApplication('ONESIGN-'.rand(0, 99999),
+                ApplicationStatus::PENDING,
+                Auth::user()->name, '', $applicationType, 'develop', $userId, '', Auth::id(),
                 ApplicationStatus::CREATE_SUGGESTION);
-            $data['proposal_name'] = $body['proposal_name'];
-            $data['proponent'] = $body['proponent'];
-            $data['price_proposal'] = $body['price_proposal'];
-            $data['account_information'] = $body['account_information'];
-            $data['delivery_time'] = $body['delivery_time'];
-            $data['delivery_date'] = $body['delivery_date'];
-            $fileIds = [];
+            $data['proposal_name']       = $proposalName;
+            $data['proponent']           = $proponent;
+            $data['price_proposal']      = $priceProposal;
+            $data['account_information'] = $accountInformation;
+            $data['delivery_time']       = $deliveryTime;
+            $data['delivery_date']       = $deliveryDate;
             $nameFiles = [];
             DB::beginTransaction();
             try {
-                if ($request->hasFile('files')) {
-                    foreach ($request->file('files') as $file)
-                    {
-                        $name = time().'-'.$file->getClientOriginalName();
-                        $nameFiles[] = $name;
-                        $storage = floor((int) $file->getSize() / 1024);
-                        $extension = $file->getClientOriginalExtension();
-                        handleUploadFile($file ,Storage::path('public/files') ,$name);
-                        $fileInstance =$this->file->create([
-                            'name' => $name,
-                            'path' => $name,
-                            'type' => $extension,
-                            'user_id' => Auth::id(),
-                            'folder_id' => null,
-                            'size' => $storage,
-                            'upload_st' => 'upload_applications'
-                        ]);
-                        $fileIds[] = $fileInstance->id;
-                    }
-                }
                 $application = $this->application::create($data);
+                if ($request->hasFile('files')) {
+                    $dataFile  = $uploadFileCreateApplication->uploadMultipleFileAndCreateDatabase($request,
+                        'upload_applications');
+                    $nameFiles = $dataFile['nameFiles'];
+                    $application->applicationFiles()->syncWithoutDetaching($dataFile['fileIds']);
+                }
+                if (count($userFollows) > 0) {
+                    $application->users()->attach($userFollows);
+                }
 
                 DB::commit();
+                event(new HandleSendMailApplication($application));
+                return new ProposalApplicationResource($application->load('user', 'users', 'userCreateApplication', 'applicationFiles'));
             }catch (\Exception $exception)
             {
                 DB::rollBack();
+                if (count($nameFiles) > 0) {
+                    foreach ($nameFiles as $nameFile) {
+                        handleRemoveFile(config('pathUploadFile.path_file'), $nameFile);
+                    }
+                }
+                throw new \Exception($exception->getMessage());
             }
+        }
 
+        /**
+         * @param  IndexApplicationRequest  $request
+         * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+         */
 
+        public function index(IndexApplicationRequest $request)
+        {
+            $status = $request->input('status');
+            $search = $request->input('search');
+            $applications = $this->application->ByUserLogin()->FilterStatus($status)
+                                                             ->SearchName($search)
+                                                             ->orderByDesc('id');
+            if ($status == ApplicationStatus::PROPOSAL_STR)
+            {
+                return  ProposalApplicationResource::collection($applications->with('user', 'users', 'userCreateApplication', 'applicationFiles')->paginate(15));
+            }
+            return ApplicationResource::collection($applications->with('user', 'users', 'userCreateApplication',
+                'dateTimeApplications' ,'applicationFiles')->paginate(15));
+        }
 
+        public function exportApplication()
+        {
+            dd('123');
         }
 
         /**

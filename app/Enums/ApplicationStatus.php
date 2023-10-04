@@ -16,6 +16,13 @@ final class ApplicationStatus extends Enum
     const SUCCESS = 2;
     const CANCEL = 3;
 
+    const PENDING_STR = 'pending';
+    const SUCCESS_STR = 'success';
+    const CANCEL_STR = 'cancel';
+    const DELETE_STR = 'delete';
+    const APPLICATION_STR = 'application';
+    const PROPOSAL_STR = 'proposal';
+
     const CREATE_APPLICATION = 1;
     const CREATE_SUGGESTION = 2;
 

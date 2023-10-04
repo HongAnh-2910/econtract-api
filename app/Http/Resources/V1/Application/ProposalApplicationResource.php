@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1\Application;
 
+use App\Enums\ApplicationProposal;
 use App\Enums\ApplicationReason;
 use App\Enums\ApplicationStatus;
 use App\Http\Resources\V1\File\FileResource;
@@ -9,7 +10,7 @@ use App\Http\Resources\V1\User\UserResource;
 use Carbon\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ApplicationResource extends JsonResource
+class ProposalApplicationResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -19,37 +20,22 @@ class ApplicationResource extends JsonResource
      */
     public function toArray($request)
     {
-        $day = 0;
-        if (!is_null($this->whenLoaded('dateTimeApplications')))
-        {
-            foreach ($this->whenLoaded('dateTimeApplications') as $value)
-            {
-                $start = Carbon::createFromFormat('Y-m-d H:s:i' ,$value->information_day_2);
-                $end = Carbon::createFromFormat('Y-m-d  H:s:i' ,$value->information_day_4);
-                if ($value->information_day_1 == $value->information_day_3 && $start->diffInDays($end) == 0)
-                {
-                    $day+=0.5;
-                }else
-                {
-                    $day+= $start->diffInDays($end) + 1;
-                }
-
-            }
-        }
         return [
             'id'                      => $this->id,
             'code'                    => $this->code,
             'name'                    => $this->name,
+            'proposal_name'           => $this->proposal_name,
+            'proponent'               => $this->proponent,
+            'price_proposal'          => $this->price_proposal,
+            'account_information'     => $this->account_information,
+            'delivery_time'           => $this->delivery_time,
+            'delivery_date'           => Carbon::parse($this->delivery_date)->format('Y-m-d'),
             'status'                  => ApplicationStatus::getStatusApplication($this->status->getValue()),
-            'reason'                  => $this->reason,
-            'type_reason_application' => ApplicationReason::getApplicationReason($this->application_type),
+            'type_reason_application' => ApplicationProposal::getApplicationProposalReason($this->application_type),
             'department_id'           => $this->department_id,
             'position'                => $this->position,
-            'day'                     => $day,
-            'date_time'               => DateTimeOfApplicationResource::collection($this->whenLoaded('dateTimeApplications')),
             'user'                    => new UserResource($this->whenLoaded('user')),
             'user_follow'             => UserResource::collection($this->whenLoaded('users')),
-            'description'             => $this->description,
             'files'                   => FileResource::collection($this->whenLoaded('applicationFiles')),
             'created_at'              => Carbon::parse($this->created_at)->format('Y-m-d'),
             'user_create'             => new UserResource($this->whenLoaded('userCreateApplication')),

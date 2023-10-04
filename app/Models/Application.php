@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
 use Spatie\ModelStates\HasStates;
 
 class Application extends Model
@@ -81,5 +82,66 @@ class Application extends Model
     public function scopeByStatus($query , string $status)
     {
         return $query->where('status',  $status);
+    }
+
+    public function scopeByType($query , float $type)
+    {
+        return $query->where('type' , $type);
+    }
+
+    /**
+     * @param $query
+     * @return mixed
+     */
+
+    public function scopeByUserLogin($query)
+    {
+        return $query->where(function ($query) {
+            $query->where('user_application', Auth::id());
+            $query->orWhere('user_id', Auth::id());
+            $query->orWhereHas('users', function ($query) {
+                $query->where('user_id', Auth::id());
+            });
+        });
+    }
+
+    /**
+     * @param $query
+     * @param $status
+     * @return mixed
+     */
+
+    public function scopeFilterStatus($query , $status)
+    {
+        switch ($status) {
+            case ApplicationStatus::PENDING_STR:
+               return $query->ByStatus(ApplicationStatus::PENDING);
+            case ApplicationStatus::SUCCESS_STR:
+                return $query->ByStatus(ApplicationStatus::SUCCESS);
+            case ApplicationStatus::CANCEL_STR:
+                return $query->ByStatus(ApplicationStatus::CANCEL);
+            case ApplicationStatus::DELETE_STR:
+                break;
+            case ApplicationStatus::APPLICATION_STR:
+                return $query->ByType(ApplicationStatus::CREATE_APPLICATION);
+            case ApplicationStatus::PROPOSAL_STR:
+                return $query->ByType(ApplicationStatus::CREATE_SUGGESTION);
+        }
+        return $query;
+    }
+
+    /**
+     * @param $query
+     * @param $search
+     * @return mixed
+     */
+
+    public function scopeSearchName($query , $search)
+    {
+        if (!empty($search))
+        {
+           return $query->where('code' , 'like' ,'%'.$search.'%');
+        }
+        return $query;
     }
 }
