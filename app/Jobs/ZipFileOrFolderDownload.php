@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exports\Application\ApplicationsExport;
+use App\Models\Application;
 use App\Models\Folder;
 use App\Services\FolderService\FolderServiceInterface;
 use Bschmitt\Amqp\Facades\Amqp;

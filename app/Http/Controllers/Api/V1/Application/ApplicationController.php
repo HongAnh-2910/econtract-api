@@ -18,6 +18,7 @@
     use App\Models\File;
     use App\Services\FileService\FileServiceInterface;
     use Dotenv\Exception\ValidationException;
+    use Illuminate\Bus\Batch;
     use Illuminate\Support\Facades\Auth;
     use Illuminate\Support\Facades\Bus;
     use Illuminate\Support\Facades\DB;
@@ -215,13 +216,10 @@
                 $applications = $applications->with('user', 'users', 'userCreateApplication',
                     'applicationFiles')->get();
             }
-            $bath = Bus::batch([
-               new ZipFileOrFolderDownload($applications)
-            ])->dispatch();
+
+             (new ApplicationsExport($applications))->store('public/export/application.xlsx');
             $path =public_path('storage/export/application.xlsx');
            return response()->download($path);
-//             (new ApplicationsExport($applications))->store('public/export/application.xlsx');
-//            return redirect()->route('application.export-download');
         }
 
         public function downloadExcel()

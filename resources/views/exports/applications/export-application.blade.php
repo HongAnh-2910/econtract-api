@@ -63,7 +63,7 @@
                     @endphp
                     {{ $day  }}
                 </td>
-                <td style="text-align: left">1</td>
+                <td style="text-align: left">3</td>
             </tr>
         @endforeach
     @endif
