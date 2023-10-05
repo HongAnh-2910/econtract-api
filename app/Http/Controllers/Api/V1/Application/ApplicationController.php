@@ -5,6 +5,7 @@
     use App\Enums\ApplicationReason;
     use App\Enums\ApplicationStatus;
     use App\Events\HandleSendMailApplication;
+    use App\Exports\Application\ApplicationsExport;
     use App\Http\Controllers\Controller;
     use App\Http\Requests\V1\Application\ApplicationStoreRequest;
     use App\Http\Requests\V1\Application\IndexApplicationRequest;
@@ -12,13 +13,16 @@
     use App\Http\Requests\V1\Application\UpdateStateApplicationRequest;
     use App\Http\Resources\V1\Application\ApplicationResource;
     use App\Http\Resources\V1\Application\ProposalApplicationResource;
+    use App\Jobs\ZipFileOrFolderDownload;
     use App\Models\Application;
     use App\Models\File;
     use App\Services\FileService\FileServiceInterface;
     use Dotenv\Exception\ValidationException;
     use Illuminate\Support\Facades\Auth;
+    use Illuminate\Support\Facades\Bus;
     use Illuminate\Support\Facades\DB;
     use Illuminate\Support\Facades\Storage;
+    use Maatwebsite\Excel\Facades\Excel;
 
     class ApplicationController extends Controller
     {
@@ -197,9 +201,33 @@
                 'dateTimeApplications' ,'applicationFiles')->paginate(15));
         }
 
-        public function exportApplication()
+        public function exportApplication(IndexApplicationRequest $request)
         {
-            dd('123');
+            $status       = $request->input('status');
+            $search       = $request->input('search');
+            $applications = $this->application->ByUserLogin()->FilterStatus($status)
+                                              ->SearchName($search)
+                                              ->orderByDesc('id');
+            if ($status == ApplicationStatus::APPLICATION_STR) {
+                $applications = $applications->with('user', 'users', 'userCreateApplication',
+                    'dateTimeApplications', 'applicationFiles')->get();
+            } else {
+                $applications = $applications->with('user', 'users', 'userCreateApplication',
+                    'applicationFiles')->get();
+            }
+            $bath = Bus::batch([
+               new ZipFileOrFolderDownload($applications)
+            ])->dispatch();
+            $path =public_path('storage/export/application.xlsx');
+           return response()->download($path);
+//             (new ApplicationsExport($applications))->store('public/export/application.xlsx');
+//            return redirect()->route('application.export-download');
+        }
+
+        public function downloadExcel()
+        {
+            $path =public_path('storage/export/application.xlsx');
+            response()->download($path);
         }
 
         /**

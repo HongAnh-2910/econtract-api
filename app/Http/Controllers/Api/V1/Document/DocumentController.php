@@ -347,7 +347,7 @@ class DocumentController extends Controller
     {
         $extends       = $request->input('type', 'rar');
         $folders       = $this->folder->where('user_id', Auth::id())->get();
-        $nameFolderZip = time().'-export.'.$extends;
+        $nameFolderZip = time().'-exports.'.$extends;
         try {
             $zip     = new ZipArchive();
             $zipFile = app()->make(FolderServiceInterface::class);

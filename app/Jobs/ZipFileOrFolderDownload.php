@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Exports\Application\ApplicationsExport;
 use App\Models\Folder;
 use App\Services\FolderService\FolderServiceInterface;
 use Bschmitt\Amqp\Facades\Amqp;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -15,34 +17,14 @@ use ZipArchive;
 
 class ZipFileOrFolderDownload implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    protected string $nameFileZip;
-    protected Folder $folder;
-
-    /**
-     * Create a new job instance.
-     *
-     * @return void
-     */
-    public function __construct(string $nameFileZip , Folder $folder)
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels ,Batchable;
+    protected $applications;
+    public function __construct($applications)
     {
-        $this->nameFileZip = $nameFileZip;
-        $this->folder = $folder;
+        $this->applications = $applications;
     }
-
-
-
     public function handle()
     {
-        $zip           = new ZipArchive();
-        $nameFolderZip = $this->nameFileZip;
-        $currentFolder = $this->folder;
-        $path    = '';
-        $zipFile = app()->make(FolderServiceInterface::class);
-        if ($zip->open(public_path($nameFolderZip), ZipArchive::CREATE) === true) {
-            $zipFile->zipToFileAndFolder($zip, $path, $currentFolder);
-            $zip->close();
-        }
+        (new ApplicationsExport($this->applications))->store('public/export/application.xlsx');
     }
 }

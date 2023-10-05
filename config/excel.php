@@ -18,7 +18,7 @@ return [
 
         /*
         |--------------------------------------------------------------------------
-        | Pre-calculate formulas during export
+        | Pre-calculate formulas during exports
         |--------------------------------------------------------------------------
         */
         'pre_calculate_formulas' => false,

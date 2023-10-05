@@ -55,7 +55,7 @@ Route::prefix('v1/contract')->group(function (){
                 [DocumentController::class, 'movedFolderOrFile']);
             Route::delete('delete-folder-or-file',
                 [DocumentController::class, 'deleteFolderOrFile']);
-            Route::post('export-document',
+            Route::post('exports-document',
                 [DocumentController::class, 'exportDocument']);
             Route::post('{id?}', [DocumentController::class, 'store']);
             Route::get('{id?}', [DocumentController::class, 'index']);
@@ -64,12 +64,13 @@ Route::prefix('v1/contract')->group(function (){
         Route::resource('file' , FileController::class);
         Route::post('file/upload/{folderId?}',[FileController::class ,'uploadFileFolder']);
 
-        Route::prefix('application')->group(function (){
+        Route::prefix('application')->name('application.')->group(function (){
             Route::post('store', [ApplicationController::class ,'store']);
             Route::post('update-state/{application}', [ApplicationController::class ,'updateState']);
             Route::post('store-proposal', [ApplicationController::class ,'storeProposal']);
             Route::get('list-application', [ApplicationController::class ,'index']);
             Route::post('export-application', [ApplicationController::class ,'exportApplication']);
+            Route::get('export-download', [ApplicationController::class ,'downloadExcel'])->name('export-download');
         });
     });
 });
