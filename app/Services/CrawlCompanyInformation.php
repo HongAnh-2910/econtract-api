@@ -12,6 +12,11 @@
             $this->client = $client;
         }
 
+        /**
+         * @param $taxCode
+         * @return array
+         */
+
         public function run($taxCode)
         {
             $crawlCompanyInformation = [];
