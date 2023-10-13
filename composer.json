@@ -10,6 +10,7 @@
         "bensampo/laravel-enum": "^4.2",
         "bschmitt/laravel-amqp": "^2.1",
         "doctrine/dbal": "^3.6",
+        "fabpot/goutte": "^4.0",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/framework": "^8.75",

@@ -217,9 +217,7 @@
                     'applicationFiles')->get();
             }
 
-             (new ApplicationsExport($applications))->store('public/export/application.xlsx');
-            $path =public_path('storage/export/application.xlsx');
-           return response()->download($path);
+             (new ApplicationsExport($applications))->store('public/export/application.xlsx')->onQueue('imports');
         }
 
         public function downloadExcel()

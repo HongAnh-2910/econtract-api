@@ -2,7 +2,8 @@
 
 use App\Http\Controllers\Api\V1\Application\ApplicationController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Department\DepartmentController;
+    use App\Http\Controllers\Api\V1\Contract\ContractController;
+    use App\Http\Controllers\Api\V1\Department\DepartmentController;
     use App\Http\Controllers\Api\V1\File\FileController;
     use App\Http\Controllers\Api\V1\Document\DocumentController;
     use App\Http\Controllers\Api\V1\Member\MemberController;
@@ -71,6 +72,11 @@ Route::prefix('v1/contract')->group(function (){
             Route::get('list-application', [ApplicationController::class ,'index']);
             Route::post('export-application', [ApplicationController::class ,'exportApplication']);
             Route::get('export-download', [ApplicationController::class ,'downloadExcel'])->name('export-download');
+        });
+
+        Route::prefix('contract')->group(function (){
+            Route::get('get-tax-code', [ContractController::class ,'getTaxCode']);
+            Route::post('store-contract', [ContractController::class ,'store']);
         });
     });
 });

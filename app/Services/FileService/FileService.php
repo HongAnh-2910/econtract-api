@@ -17,7 +17,7 @@
             $this->file = $file;
         }
 
-        public function uploadMultipleFileAndCreateDatabase(Request $request, string $uploadFileSt)
+        public function uploadMultipleFileAndCreateDatabase(Request $request, string $uploadFileSt , $contractId = null)
         {
             $fileIds   = [];
             $nameFiles = [];
@@ -31,13 +31,14 @@
                         $extension   = $file->getClientOriginalExtension();
                         handleUploadFile($file, Storage::path('public/files'), $name);
                         $fileInstance = $this->file->create([
-                            'name'      => $name,
-                            'path'      => $name,
-                            'type'      => $extension,
-                            'user_id'   => Auth::id(),
-                            'folder_id' => null,
-                            'size'      => $storage,
-                            'upload_st' => $uploadFileSt
+                            'name'        => $name,
+                            'path'        => $name,
+                            'type'        => $extension,
+                            'user_id'     => Auth::id(),
+                            'folder_id'   => null,
+                            'size'        => $storage,
+                            'upload_st'   => $uploadFileSt,
+                            'contract_id' => $contractId
                         ]);
                         $fileIds[]    = $fileInstance->id;
                     }

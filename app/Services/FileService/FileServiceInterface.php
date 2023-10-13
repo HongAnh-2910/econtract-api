@@ -6,5 +6,5 @@
 
     interface FileServiceInterface
     {
-        public function uploadMultipleFileAndCreateDatabase(Request $request , string $uploadFileSt);
+        public function uploadMultipleFileAndCreateDatabase(Request $request , string $uploadFileSt , $contractId = null);
     }
