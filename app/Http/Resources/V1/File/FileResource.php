@@ -32,6 +32,7 @@ class FileResource extends JsonResource
             'user'              => new UserResource($this->whenLoaded('user')),
             'folder_id'         => $this->folder_id,
             'folder'            => new FolderResource($this->whenLoaded('folder')),
+            'base64'            => $this->whenPivotLoaded('file_contract' ,$this->pivot->base64),
             'size'              => $this->size,
             'upload_st'         => $this->upload_st,
             'contract_id'       => $this->contract_id,

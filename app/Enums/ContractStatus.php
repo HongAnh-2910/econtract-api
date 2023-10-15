@@ -16,6 +16,9 @@ final class ContractStatus extends Enum
     const SUCCESS = 3;
     const CANCELED = 4;
 
+    const TRANSFER = 2;
+    const CASH = 1;
+
     const PERSONAL =  'personal';
     const COMPANY = 'company';
 
@@ -38,6 +41,17 @@ final class ContractStatus extends Enum
         ],
     ];
 
+    const PAYMENT = [
+       self::CASH =>  [
+           'value' => self::CASH,
+           'name' => 'Thanh toán tiền mặt'
+       ],
+        self::TRANSFER => [
+            'value' => self::TRANSFER,
+            'name' => 'Thanh toán tiền chuyển khoản'
+        ],
+    ];
+
     /**
      * @param $status
      * @return array|mixed
@@ -46,5 +60,15 @@ final class ContractStatus extends Enum
     static function getStatus($status)
     {
         return data_get(self::STATUSES , $status ?? []);
+    }
+
+    /**
+     * @param $status
+     * @return array|mixed
+     */
+
+    static function getPayment($status)
+    {
+        return data_get(self::PAYMENT , $status ?? []);
     }
 }

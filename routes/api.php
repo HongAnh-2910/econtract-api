@@ -77,6 +77,7 @@ Route::prefix('v1/contract')->group(function (){
         Route::prefix('contract')->group(function (){
             Route::get('get-tax-code', [ContractController::class ,'getTaxCode']);
             Route::post('store-contract', [ContractController::class ,'store']);
+            Route::get('find/{contract}', [ContractController::class ,'find']);
         });
     });
 });
