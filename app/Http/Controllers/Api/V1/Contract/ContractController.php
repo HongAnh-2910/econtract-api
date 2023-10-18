@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V1\Contract;
 
 use App\Enums\ContractStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\Contract\SetupSignatureSuccessRequest;
 use App\Http\Requests\V1\Contract\StoreContractRequest;
 use App\Http\Resources\V1\Contract\ContractResource;
 use App\Models\Contract;
 use App\Models\File;
+use App\Models\Signature;
 use App\Services\CrawlCompanyInformation;
 use App\Services\FileService\FileServiceInterface;
 use Dotenv\Exception\ValidationException;
@@ -29,10 +31,13 @@ class ContractController extends Controller
 
     protected Contract $contract;
 
-    public function __construct(CrawlCompanyInformation $companyInformation , Contract $contract)
+    protected Signature $signature;
+
+    public function __construct(CrawlCompanyInformation $companyInformation , Contract $contract , Signature $signature)
     {
         $this->crawlCompanyInformation = $companyInformation;
         $this->contract = $contract;
+        $this->signature = $signature;
     }
 
     /**
@@ -100,6 +105,61 @@ class ContractController extends Controller
     {
         $contract = $contract->load('files' ,'signatures' ,'follows' ,'banking' ,'user');
         return new ContractResource($contract);
+    }
+
+    /**
+     * @param SetupSignatureSuccessRequest $request
+     * @param Contract $contract
+     * @return JsonResponse
+     * @throws \ErrorException
+     */
+
+    public function setupSignatureSuccess(SetupSignatureSuccessRequest $request, Contract $contract)
+    {
+        $dataSignatureRequest = $request->input('signatures' , []);
+        if (count($dataSignatureRequest) > count($contract->signatures) ||  count($dataSignatureRequest) < count($contract->signatures))
+        {
+            throw new \ErrorException('lỗi');
+        }
+        DB::beginTransaction();
+        try {
+            foreach ($dataSignatureRequest as $item)
+            {
+                $this->signature->where('id' , $item['signature_id'])->update([
+                    "dataX" => $item['dataX'],
+                    "dataY" => $item['dataY'],
+                    "dataPage" => $item['dataPage'],
+                    "token" => Str::random(40),
+                    "type" => $item['type'],
+                    "width" => $item['width'],
+                    "height" => $item['height']
+                ]);
+            }
+            DB::commit();
+            return $this->successResponse(null ,'oke', 200);
+        }catch (Exception $exception)
+        {
+            DB::rollBack();
+            throw new \ErrorException($exception->getMessage());
+        }
+    }
+
+    public function sendMailSignature(Contract $contract , Request $request)
+    {
+        $signatureId = $request->input('signature_id');
+        if (is_null($signatureId))
+        {
+           $signature = $contract->signatures()
+               ->where('mailed_at' , null)
+               ->orWhere('signatured_at' , null)
+               ->first();
+           if ($signature)
+           {
+               return $signature;
+               echo "send mail";
+               echo "cap nhat lại trang thai email";
+           }
+        }
     }
 
 }

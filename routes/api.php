@@ -78,6 +78,8 @@ Route::prefix('v1/contract')->group(function (){
             Route::get('get-tax-code', [ContractController::class ,'getTaxCode']);
             Route::post('store-contract', [ContractController::class ,'store']);
             Route::get('find/{contract}', [ContractController::class ,'find']);
+            Route::patch('setup-signature-success/{contract}', [ContractController::class ,'setupSignatureSuccess']);
+            Route::post('send-mail-signature/{contract}', [ContractController::class ,'sendMailSignature']);
         });
     });
 });
