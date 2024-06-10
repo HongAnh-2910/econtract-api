@@ -93,4 +93,9 @@ class File extends Model
         }
         return $query->ByUserIdOrUserIdShare();
     }
+
+    public function scopeFolderIdNull($query)
+    {
+        return $query->whereNull('folder_id');
+    }
 }

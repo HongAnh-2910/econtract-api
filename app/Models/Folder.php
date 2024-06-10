@@ -72,7 +72,7 @@ class Folder extends Model
 
     public function treeChildren():HasMany
     {
-        return $this->children()->with('treeChildren');
+        return $this->children()->with('treeChildren' ,'files');
     }
 
     /**
@@ -173,6 +173,11 @@ class Folder extends Model
             });
         }
         return $query->ByUserIdOrUserIdShare();
+    }
+
+    public function scopeGetParent($query)
+    {
+        return $query->whereNull('parent_id');
     }
 
 }
