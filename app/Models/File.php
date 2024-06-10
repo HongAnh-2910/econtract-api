@@ -19,7 +19,14 @@ class File extends Model
     protected $table = 'files';
     protected $guarded = [];
 
-
+    protected static function booted()
+    {
+        static::addGlobalScope('files', function (Builder $builder) {
+            $builder->where('user_id', Auth::id())->orWhereHas('users' , function ($query){
+                $query->where('user_id', Auth::id());
+            });
+        });
+    }
     public function scopeByUserIdOrUserIdShare($query)
     {
         return $query->where('user_id' , Auth::id())->orWhereHas('users' , function ($query){

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\DocumentStatus;
 use App\Enums\TypeDelete;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,15 @@ class Folder extends Model
     protected $table ='folders';
 
     protected $guarded = [];
+
+    protected static function booted()
+    {
+        static::addGlobalScope('folder', function (Builder $builder) {
+            $builder->where('user_id', Auth::id())->orWhereHas('users' , function ($query){
+                $query->where('user_id', Auth::id());
+            });
+        });
+    }
 
     /**
      * @return BelongsTo
