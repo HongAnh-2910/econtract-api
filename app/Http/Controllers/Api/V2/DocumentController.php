@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DocumentController extends Controller
 {
@@ -31,10 +32,11 @@ class DocumentController extends Controller
     }
 
     /**
-     * @param $folderId
+     * @param $parentFolderId
      * @param $fileByFolderId
      * @param $size
-     * @return mixed
+     * @param $folderId
+     * @return array
      */
 
     private function getDocument($parentFolderId = null, $fileByFolderId = null, $size ,  $folderId = null)
@@ -84,99 +86,55 @@ class DocumentController extends Controller
         $type = $request->input('type');
         if ($type == self::TYPE_FOLDER)
         {
-            $folders =  Folder::with(['treeChildren'])->where('id', $formId)->get();
-            $arrID = [];
-            foreach ($folders as $folder)
+            if (Folder::where('name' , Folder::where('id' , $formId)->first()->name)->where('parent_id' , $toId)->first())
             {
-                $this->treeGetFolderId($folder['id'] , $arrID);
-                array_push($arrID , $folder);
+                throw new \Exception('Folder đã tồn tại');
             }
-            $ids = collect($arrID)->pluck('id');
-            $data =Folder::whereIn('parent_id', $ids)->get();
-            $data = array_merge([Folder::where('id' , $formId)->first()->toArray()] ,$data->toArray());
-            $data = collect($data)->groupBy('parent_id');
-            foreach ($data as $key => $value)
-            {
-                if ($key == "")
-                {
-//                    $folder = Folder::create([
-//                        "name"      => $value[0]['name'],
-//                        "user_id"   => Auth::id(),
-//                        "parent_id" => $toId,
-//                        "slug"      => $value[0]['slug'],
-//                    ]);
-//                    if (!empty(Folder::where('parent_id' , $value[0]['id'])->get()))
-//                    {
-//                        foreach (Folder::where('parent_id' , $value[0]['id'])->get() as $key1 => $value1)
-//                        {
-//                             Folder::create([
-//                                "name"      => $value1['name'],
-//                                "user_id"   => Auth::id(),
-//                                "parent_id" => $folder['id'],
-//                                "slug"      => $value1['slug'],
-//                            ]);
-//                        }
-//                    }
-
-                }else
-                {
-                    foreach ($value as $key => $value1)
-                    {
-                        $folder = Folder::create([
-                        "name"      => $value[0]['name'],
-                        "user_id"   => Auth::id(),
-                        "parent_id" => $toId,
-                        "slug"      => $value[0]['slug'],
-                    ]);
-                    }
-                }
-            }
-//            DB::beginTransaction();
-//            try {
-//                collect($data)->each(function ($item , $key) {
-//                    if ($key == 0)
-//                    {
-//                        dd($item);
-//                    }
-//                });
-//
-//                DB::commit();
-//            }catch (\Exception $exception)
-//            {
-//                DB::rollBack();
-//
-//            }
-//            $folderIds = collect($arrID)->pluck('id');
-//            $files = File::whereIn('folder_id', $folderIds)->get();
-//            return $folders;
-
+            $folder =  Folder::with(['treeChildren'])->find($formId);
+            return $folder;
+            $folderCreate = $this->createFolder($folder , $toId);
+            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
+            return  Folder::with(['treeChildren'])->find($folderCreate->id);
         }
     }
 
-    private function treeGetFolderId($id , &$arrId)
+    private function treeGetFolderId($folderIdOld , $folderIdNew)
     {
-        $folders =  Folder::with(['treeChildren'])->where('parent_id', $id)->get();
+        $files = File::where('folder_id' , $folderIdOld)->get();
+        foreach ($files as $file)
+        {
+            File::create([
+                "name" => $file->name,
+                "path" =>  $file->path,
+                "type" =>  $file->type,
+                "user_id" => Auth::id(),
+                "folder_id" => $folderIdNew,
+                "size"=> $file->size,
+                "upload_st"=> $file->upload_st,
+                "contract_id"=> $file->contract_id,
+            ]);
+        }
+        $folders =  Folder::with(['treeChildren'])->where('parent_id', $folderIdOld)->get();
         if (!empty($folders))
         {
             foreach ($folders as $folder)
             {
-                $this->treeGetFolderId($folder['id'] , $arrId);
-                array_push($arrId , $folder);
+                $folderCreate = $this->createFolder($folder, $folderIdNew);
+                $this->treeGetFolderId($folder['id'] , $folderCreate->id);
             }
         }
-
-        return $arrId;
-
-//        if ($id)
-//        {
-//            $document = $this->getDocument(null, $id , null , $id);
-//           array_push($arrId , $id);
-//            foreach ($document as $key => $value)
-//            {
-//                $this->treeGetFolderId($id , $arrId);
-//            }
-//        }
     }
+
+    private function createFolder($folder , $folderIdNew)
+    {
+        return Folder::create([
+            "name"      => $folder->name,
+            "user_id"   => Auth::id(),
+            "parent_id" => $folderIdNew,
+            "slug"      => $folder->slug,
+        ]);
+    }
+
 
 
 
