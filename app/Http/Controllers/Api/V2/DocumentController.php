@@ -90,12 +90,48 @@ class DocumentController extends Controller
             {
                 throw new \Exception('Folder đã tồn tại');
             }
-            $folder =  Folder::with(['treeChildren'])->find($formId);
-            return $folder;
-            $folderCreate = $this->createFolder($folder , $toId);
-            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
-            return  Folder::with(['treeChildren'])->find($folderCreate->id);
+            $folder =  Folder::with('treeChildren')->find($formId);
+            $folderGet = [];
+             $this->treeCustomer($folder , $folder->id , $level = 0);
+//            $folderCreate = $this->createFolder($folder , $toId);
+//            $folderTree = $this->testTreeFolder($folder , $folderGet ,$folderCreate->id);
+//            return $folderTree;
+//            $folderCreate = $this->createFolder($folder , $toId);
+//            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
+//            return  Folder::with(['treeChildren'])->find($folderCreate->id);
         }
+    }
+
+    private function treeCustomer($folder , $id , $level)
+    {
+        $result = [];
+        foreach ($folder->treeChildren as $child)
+        {
+            if ($child->parent_id == $id)
+            {
+                $child['level'] = 0;
+                $result[] = $child;
+                $child = $this->treeCustomer($child->treeChildren , $child->id ,$level+1);
+
+            }
+        }
+        return $result;
+    }
+
+    private function testTreeFolder($folder , &$folderGet , $id)
+    {
+        $folders = Folder::where('parent_id' , $folder->id)->get();
+        if (count($folders) > 0)
+        {
+            foreach ($folders as $folder1)
+            {
+                $folderCreate = $this->createFolder($folder1 , $id);
+                array_push($folderGet, $folderCreate);
+                $this->testTreeFolder($folder1 , $folderGet , $folderCreate->id);
+                unset($folderCreate);
+            }
+        }
+        return $folderGet;
     }
 
     private function treeGetFolderId($folderIdOld , $folderIdNew)
@@ -103,26 +139,33 @@ class DocumentController extends Controller
         $files = File::where('folder_id' , $folderIdOld)->get();
         foreach ($files as $file)
         {
-            File::create([
-                "name" => $file->name,
-                "path" =>  $file->path,
-                "type" =>  $file->type,
-                "user_id" => Auth::id(),
-                "folder_id" => $folderIdNew,
-                "size"=> $file->size,
-                "upload_st"=> $file->upload_st,
-                "contract_id"=> $file->contract_id,
-            ]);
+            $this->createFile($file , $folderIdNew);
         }
-        $folders =  Folder::with(['treeChildren'])->where('parent_id', $folderIdOld)->get();
+        $folders =  Folder::where('parent_id', $folderIdOld)->get();
         if (!empty($folders))
         {
             foreach ($folders as $folder)
             {
                 $folderCreate = $this->createFolder($folder, $folderIdNew);
                 $this->treeGetFolderId($folder['id'] , $folderCreate->id);
+                unset($folder);
             }
         }
+        unset($folders);
+    }
+
+    private function createFile($file , $folderIdNew)
+    {
+        return File::create([
+            "name" => $file->name,
+            "path" =>  $file->path,
+            "type" =>  $file->type,
+            "user_id" => Auth::id(),
+            "folder_id" => $folderIdNew,
+            "size"=> $file->size,
+            "upload_st"=> $file->upload_st,
+            "contract_id"=> $file->contract_id,
+        ]);
     }
 
     private function createFolder($folder , $folderIdNew)
