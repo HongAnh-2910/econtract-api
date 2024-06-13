@@ -92,8 +92,8 @@ class DocumentController extends Controller
             }
             $folder =  Folder::with('treeChildren')->find($formId);
             $folderGet = [];
-             $this->treeCustomer($folder , $folder->id , $level = 0);
-//            $folderCreate = $this->createFolder($folder , $toId);
+                        $folderCreate = $this->createFolder($folder , $toId);
+            return $this->treeCustomer($folder , $folder->id , $level = 0 , $folderCreate->id);
 //            $folderTree = $this->testTreeFolder($folder , $folderGet ,$folderCreate->id);
 //            return $folderTree;
 //            $folderCreate = $this->createFolder($folder , $toId);
@@ -101,18 +101,23 @@ class DocumentController extends Controller
 //            return  Folder::with(['treeChildren'])->find($folderCreate->id);
         }
     }
-
-    private function treeCustomer($folder , $id , $level)
+    private function treeCustomer($folder , $id , $level ,$idFolder)
     {
-        $result = [];
-        foreach ($folder->treeChildren as $child)
-        {
-            if ($child->parent_id == $id)
-            {
-                $child['level'] = 0;
-                $result[] = $child;
-                $child = $this->treeCustomer($child->treeChildren , $child->id ,$level+1);
 
+        $result = [];
+        if (!empty($folder->treeChildren))
+        {
+            foreach ($folder->treeChildren as $child)
+            {
+                if ($child->parent_id == $id)
+                {
+                    $folderCreate = $this->createFolder($child , $idFolder);
+                    $child['level'] = $level;
+                    $result[] = $child;
+                    $child = $this->treeCustomer($child , $child->id ,$level+1 ,$folderCreate->id);
+                    $result = array_merge($result , $child);
+
+                }
             }
         }
         return $result;
