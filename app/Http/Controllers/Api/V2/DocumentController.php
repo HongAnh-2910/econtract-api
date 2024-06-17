@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DocumentController extends Controller
 {
@@ -42,13 +44,12 @@ class DocumentController extends Controller
     private function getDocument($parentFolderId = null, $fileByFolderId = null, $size ,  $folderId = null)
     {
         $folders =  Folder::with(['treeChildren' ,'files']);
-        if ((is_null($parentFolderId) && is_null($folderId)) or (!empty($parentFolderId) && is_null($folderId)))
-        {
-            $folders->where('parent_id', $parentFolderId);
-        }
         if (!empty($folderId))
         {
             $folders->where('id', $folderId);
+        }else
+        {
+            $folders->where('parent_id', $parentFolderId);
         }
         $folders   = $folders->get();
         $files     = File::where('folder_id', $fileByFolderId)->get();
@@ -68,43 +69,81 @@ class DocumentController extends Controller
 
     public function moveDocument(Request $request)
     {
-        $formId = $request->input('form_id');
-        $toId = $request->input('to_id');
-        $type = $request->input('type');
+        $form = $request->input('from' ,[]);
+        $toFolderId = $request->input('to_folder_id');
+        $files = File::whereIn('id', data_get($form ,'file_ids' ,[]));
+        if (!empty(data_get($form ,'folder_ids')))
+        {
+            $folders = Folder::whereIn('id' , data_get($form ,'folder_ids'))->get();
+            $this->validateCopyAndMoveFolder($form ,$toFolderId ,$folders);
+            $this->validateCopyAndMoveFile($files , $toFolderId);
+            $folders->each(function ($item) use($toFolderId) {
+                $item->update([
+                   'parent_id'=> $toFolderId,
+                ]);
+            });
+            $files->each(function ($item) use($toFolderId) {
+                $item->update([
+                    'folder_id' => $toFolderId
+                ]);
+            });
+            return true;
+        }
 
-//        return $folders;
-//        if ($type == self::TYPE_FOLDER)
-//        {
-//            return $document = $this->getDocument(null, $formId , null , $formId);
-//        }
+        $files = File::whereIn('id', data_get($form ,'file_ids'));
+        $this->validateCopyAndMoveFile($files ,$toFolderId);
+        $files->each(function ($item) use($toFolderId) {
+            $item->update([
+                'folder_id' => $toFolderId
+            ]);
+        });
+        return true;
     }
 
     public function copyDocument(Request $request)
     {
-        $formId = $request->input('form_id');
-        $toId = $request->input('to_id');
-        $type = $request->input('type');
-        if ($type == self::TYPE_FOLDER)
+        $form = $request->input('from' ,[]);
+        $toFolderId = $request->input('to_folder_id');
+        $files = File::whereIn('id', data_get($form ,'file_ids'));
+        $this->validateCopyAndMoveFile($files , $toFolderId);
+        if (!empty(data_get($form ,'folder_ids')))
         {
-            if (Folder::where('name' , Folder::where('id' , $formId)->first()->name)->where('parent_id' , $toId)->first())
+            $folders = Folder::whereIn('id' , data_get($form ,'folder_ids'))->get();
+            $this->validateCopyAndMoveFolder($form ,$toFolderId , $folders);
+           $folders = $folders->load(['treeChildren' ,'files']);
+           foreach ($folders as $folder)
+           {
+               $folderCreate = $this->createFolder($folder , $toFolderId);
+               $this->treeGetFolderId($folder , $folder->id  , $folderCreate->id);
+           }
+            foreach ($files->get() as $file)
             {
-                throw new \Exception('Folder đã tồn tại');
+                $this->createFile($file , $toFolderId);
             }
-            $folder =  Folder::with('treeChildren')->find($formId);
-            $folderGet = [];
-                        $folderCreate = $this->createFolder($folder , $toId);
-            return $this->treeCustomer($folder , $folder->id , $level = 0 , $folderCreate->id);
-//            $folderTree = $this->testTreeFolder($folder , $folderGet ,$folderCreate->id);
-//            return $folderTree;
-//            $folderCreate = $this->createFolder($folder , $toId);
-//            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
-//            return  Folder::with(['treeChildren'])->find($folderCreate->id);
+           return Folder::with(['treeChildren' ,'files'])
+                        ->where('id' , $toFolderId)
+                        ->first();
         }
-    }
-    private function treeCustomer($folder , $id , $level ,$idFolder)
-    {
+        foreach ($files->get() as $file)
+        {
+            $this->createFile($file , $toFolderId);
+        }
+        return File::where('folder_id' , $toFolderId)->get();
 
-        $result = [];
+    }
+
+
+
+    private function treeGetFolderId($folder , $id  ,$idFolder)
+    {
+        if (!empty($files =$folder->files))
+        {
+            foreach ($files as $file)
+            {
+                $this->createFile($file , $idFolder);
+            }
+        }
+
         if (!empty($folder->treeChildren))
         {
             foreach ($folder->treeChildren as $child)
@@ -112,51 +151,12 @@ class DocumentController extends Controller
                 if ($child->parent_id == $id)
                 {
                     $folderCreate = $this->createFolder($child , $idFolder);
-                    $child['level'] = $level;
-                    $result[] = $child;
-                    $child = $this->treeCustomer($child , $child->id ,$level+1 ,$folderCreate->id);
-                    $result = array_merge($result , $child);
+                     $this->treeGetFolderId($child , $child->id  ,$folderCreate->id);
 
                 }
             }
         }
-        return $result;
-    }
-
-    private function testTreeFolder($folder , &$folderGet , $id)
-    {
-        $folders = Folder::where('parent_id' , $folder->id)->get();
-        if (count($folders) > 0)
-        {
-            foreach ($folders as $folder1)
-            {
-                $folderCreate = $this->createFolder($folder1 , $id);
-                array_push($folderGet, $folderCreate);
-                $this->testTreeFolder($folder1 , $folderGet , $folderCreate->id);
-                unset($folderCreate);
-            }
-        }
-        return $folderGet;
-    }
-
-    private function treeGetFolderId($folderIdOld , $folderIdNew)
-    {
-        $files = File::where('folder_id' , $folderIdOld)->get();
-        foreach ($files as $file)
-        {
-            $this->createFile($file , $folderIdNew);
-        }
-        $folders =  Folder::where('parent_id', $folderIdOld)->get();
-        if (!empty($folders))
-        {
-            foreach ($folders as $folder)
-            {
-                $folderCreate = $this->createFolder($folder, $folderIdNew);
-                $this->treeGetFolderId($folder['id'] , $folderCreate->id);
-                unset($folder);
-            }
-        }
-        unset($folders);
+        return true;
     }
 
     private function createFile($file , $folderIdNew)
@@ -183,12 +183,91 @@ class DocumentController extends Controller
         ]);
     }
 
-
-
-
-    public function uploadFile()
+    private function validateCopyAndMoveFolder($form , $toFolderId ,$folders)
     {
+        if ((count($folders) != count(data_get($form ,'folder_ids'))) )
+        {
+            throw new \Exception('Truyền id folder không đúng');
+        }
+        $nameFolder = $folders->pluck('name')->toArray();
+        if (Folder::whereIn('name' , $nameFolder)->where('parent_id' ,$toFolderId)->count() > 0)
+        {
+            throw new \Exception('Folder đã tồn tại trong thư mục cần copy đến');
+        }
+        $folderIdFirst = data_get($form ,'folder_ids.0');
+        $getFolderFirstParentId = Folder::where('id' , $folderIdFirst)->first()->parent_id;
+        $checkFolderSameFolderParent = $folders->every(function ($item) use ($getFolderFirstParentId){
+            return $item->parent_id == $getFolderFirstParentId;
+        });
+        if (!$checkFolderSameFolderParent)
+        {
+            throw new \Exception('Lấy id folder không cùng folder cha');
+        }
+    }
 
+    private function validateCopyAndMoveFile($file ,$toFolderId)
+    {
+        $getNameFiles = $file->pluck('name')->toArray();
+        $checkFile = File::where('name' , $getNameFiles)->where('folder_id',$toFolderId)->count();
+        throw_if($checkFile >0 ,new \DomainException('File đã tồn tại trong thư mục cần copy đến' , 400));
+    }
+
+
+
+
+    public function uploadFile(Request $request)
+    {
+        $files = $request->file('files');
+        $folderId = $request->input('folder_id');
+        if ($request->hasFile('files'))
+        {
+            try {
+                $arr= [];
+                $nameFile = [];
+                foreach ($files as $file)
+                {
+                    $name = time().'-'.$file->getClientOriginalName();
+                    $nameFile[] = $name;
+                    $storage = floor((int) $file->getSize() / 1024);
+                    $extension = $file->getClientOriginalExtension();
+                    $arr[] = [
+                        'name' => $name,
+                        'path' => $name,
+                        'type' => $extension,
+                        'user_id' => Auth::id(),
+                        'folder_id' => $folderId,
+                        'size' => $storage
+                    ];
+                    handleUploadFile($file,Storage::path('public/files') ,$name);
+                }
+                File::insert($arr);
+              return $this->successResponse(null ,'File upload success' ,200);
+            }catch (\Exception $exception)
+            {
+                if (!empty($nameFile))
+                {
+                    foreach ($nameFile as $name)
+                    {
+                        handleRemoveFile(Storage::path('public/files') ,$name);
+                    }
+                }
+            }
+        }
+        throw new \DomainException('File upload error');
+    }
+
+    public function shareDocument(Request $request)
+    {
+        $folderIds    = $request->input('folder_ids' ,[]);
+        $fileIds      = $request->input('file_ids' ,[]);
+        $userShareIds = $request->input('user_share_ids' ,[]);
+        $folders = Folder::whereIn('id' ,$folderIds);
+        $files = File::whereIn('id' , $fileIds);
+        throw_if($folders->count() != count($folderIds) ,  new \DomainException('Id folder truyền vào không chính xác' , 400));
+        throw_if($files->count() != count($fileIds) ,  new \DomainException('Id file truyền vào không chính xác' , 400));
+        throw_if($files->count() != count($fileIds) ,  new \DomainException('Id file truyền vào không chính xác' , 400));
+        return $folders;
+//        $folders = Folder::where('')
     }
 
     /**
@@ -198,7 +277,7 @@ class DocumentController extends Controller
      */
     public function create()
     {
-        //
+
     }
 
     /**
@@ -209,7 +288,15 @@ class DocumentController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $folderId = $request->input('folder_id');
+        $name = $request->input('name');
+        $folder = Folder::create([
+            "name"      =>  $name,
+            "user_id"   => Auth::id(),
+            "parent_id" => $folderId,
+            "slug"      => Str::slug($name),
+        ]);
+        return $folder;
     }
 
     /**
