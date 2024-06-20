@@ -219,8 +219,10 @@ class DocumentController extends Controller
     {
         $files = $request->file('files');
         $folderId = $request->input('folder_id');
+        $userShareIds = $request->input('user_share_ids' ,[]);
         if ($request->hasFile('files'))
         {
+            DB::beginTransaction();
             try {
                 $arr= [];
                 $nameFile = [];
@@ -241,9 +243,15 @@ class DocumentController extends Controller
                     handleUploadFile($file,Storage::path('public/files') ,$name);
                 }
                 File::insert($arr);
+                $getFilesInsert = File::whereIn('name' , $nameFile)->get();
+                $getFilesInsert->each(function($item) use($userShareIds){
+                   return $item->users()->attach($userShareIds);
+                });
+                DB::commit();
               return $this->successResponse(null ,'File upload success' ,200);
             }catch (\Exception $exception)
             {
+                DB::rollBack();
                 if (!empty($nameFile))
                 {
                     foreach ($nameFile as $name)
@@ -266,9 +274,25 @@ class DocumentController extends Controller
         throw_if($folders->count() != count($folderIds) ,  new \DomainException('Id folder truyền vào không chính xác' , 400));
         throw_if($files->count() != count($fileIds) ,  new \DomainException('Id file truyền vào không chính xác' , 400));
         throw_if($files->count() != count($fileIds) ,  new \DomainException('Id file truyền vào không chính xác' , 400));
-        return $folders;
-//        $folders = Folder::where('')
+        DB::beginTransaction();
+        try {
+            $folders->each(function ($item) use($userShareIds) {
+                return $item->users()->sync($userShareIds);
+            });
+
+            $files->each(function ($item) use($userShareIds) {
+                return $item->users()->sync($userShareIds);
+            });
+            return $this->successResponse(null ,'success' ,200);
+
+        }catch (\Exception $exception)
+        {
+            DB::rollBack();
+            return $this->errorResponse(null ,'error');
+        }
     }
+
+
 
     /**
      * Show the form for creating a new resource.
