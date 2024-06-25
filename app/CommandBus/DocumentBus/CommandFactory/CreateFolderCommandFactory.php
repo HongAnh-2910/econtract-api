@@ -11,6 +11,7 @@
         {
             $command  = new CreateFolderCommand();
             $command->setFolderId($request->get('folder_id'));
+            $command->setName($request->get('name'));
             return $command;
         }
     }

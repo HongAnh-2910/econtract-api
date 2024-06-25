@@ -11,6 +11,7 @@
         public function handle(CreateFolderCommand $create_folder_command)
         {
             $folderId = $create_folder_command->getFolderId();
+            $name = $create_folder_command->getName();
             Folder::create([
                 "name"      => $folder->name,
                 "user_id"   => Auth::id(),
