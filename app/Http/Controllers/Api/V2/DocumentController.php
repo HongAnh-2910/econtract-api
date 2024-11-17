@@ -30,6 +30,10 @@ class DocumentController extends Controller
             throw_if(!Folder::where('id', $folderId)->first(), new ModelNotFoundException('Không tồn tại folder', 400));
             return $this->getDocument($folderId, $folderId, $size);
         }
+<<<<<<< HEAD
+=======
+        dd(1);
+>>>>>>> 123a
         return $this->getDocument(null, null, $size);
     }
 
@@ -44,11 +48,20 @@ class DocumentController extends Controller
     private function getDocument($parentFolderId = null, $fileByFolderId = null, $size, $folderId = null)
     {
         $folders = Folder::with(['treeChildren', 'files']);
+<<<<<<< HEAD
         if (!empty($folderId)) {
             $folders->where('id', $folderId);
         } else {
             $folders->where('parent_id', $parentFolderId);
         }
+=======
+        if ((is_null($parentFolderId) && is_null($folderId)) or (!empty($parentFolderId) && is_null($folderId))) {
+            $folders->where('parent_id', $parentFolderId);
+        }
+        if (!empty($folderId)) {
+            $folders->where('id', $folderId);
+        }
+>>>>>>> 123a
         $folders = $folders->get();
         $files = File::where('folder_id', $fileByFolderId)->get();
         $documents = array_merge($folders->toArray(), $files->toArray());
@@ -86,6 +99,7 @@ class DocumentController extends Controller
             return true;
         }
 
+<<<<<<< HEAD
         $files = File::whereIn('id', data_get($form, 'file_ids'));
         $this->validateCopyAndMoveFile($files, $toFolderId);
         $files->each(function ($item) use ($toFolderId) {
@@ -94,10 +108,18 @@ class DocumentController extends Controller
             ]);
         });
         return true;
+=======
+        //        return $folders;
+//        if ($type == self::TYPE_FOLDER)
+//        {
+//            return $document = $this->getDocument(null, $formId , null , $formId);
+//        }
+>>>>>>> 123a
     }
 
     public function copyDocument(Request $request)
     {
+<<<<<<< HEAD
         $form = $request->input('from', []);
         $toFolderId = $request->input('to_folder_id');
         $files = File::whereIn('id', data_get($form, 'file_ids'));
@@ -116,6 +138,19 @@ class DocumentController extends Controller
             return Folder::with(['treeChildren', 'files'])
                 ->where('id', $toFolderId)
                 ->first();
+=======
+        $formId = $request->input('form_id');
+        $toId = $request->input('to_id');
+        $type = $request->input('type');
+        if ($type == self::TYPE_FOLDER) {
+            if (Folder::where('name', Folder::where('id', $formId)->first()->name)->where('parent_id', $toId)->first()) {
+                throw new \Exception('Folder đã tồn tại');
+            }
+            $folder = Folder::with(['treeChildren'])->find($formId);
+            $folderCreate = $this->createFolder($folder, $toId);
+            $this->treeGetFolderId($folder['id'], $folderCreate->id);
+            return Folder::with(['treeChildren'])->find($folderCreate->id);
+>>>>>>> 123a
         }
         foreach ($files->get() as $file) {
             $this->createFile($file, $toFolderId);
@@ -124,6 +159,7 @@ class DocumentController extends Controller
 
     }
 
+<<<<<<< HEAD
 
 
     private function treeGetFolderId($folder, $id, $idFolder)
@@ -131,6 +167,28 @@ class DocumentController extends Controller
         if (!empty($files = $folder->files)) {
             foreach ($files as $file) {
                 $this->createFile($file, $idFolder);
+=======
+    private function treeGetFolderId($folderIdOld, $folderIdNew)
+    {
+        $files = File::where('folder_id', $folderIdOld)->get();
+        foreach ($files as $file) {
+            File::create([
+                "name" => $file->name,
+                "path" => $file->path,
+                "type" => $file->type,
+                "user_id" => Auth::id(),
+                "folder_id" => $folderIdNew,
+                "size" => $file->size,
+                "upload_st" => $file->upload_st,
+                "contract_id" => $file->contract_id,
+            ]);
+        }
+        $folders = Folder::with(['treeChildren'])->where('parent_id', $folderIdOld)->get();
+        if (!empty($folders)) {
+            foreach ($folders as $folder) {
+                $folderCreate = $this->createFolder($folder, $folderIdNew);
+                $this->treeGetFolderId($folder['id'], $folderCreate->id);
+>>>>>>> 123a
             }
         }
 
@@ -146,6 +204,7 @@ class DocumentController extends Controller
         return true;
     }
 
+<<<<<<< HEAD
     private function createFile($file, $folderIdNew)
     {
         return File::create([
@@ -157,6 +216,15 @@ class DocumentController extends Controller
             "size" => $file->size,
             "upload_st" => $file->upload_st,
             "contract_id" => $file->contract_id,
+=======
+    private function createFolder($folder, $folderIdNew)
+    {
+        return Folder::create([
+            "name" => $folder->name,
+            "user_id" => Auth::id(),
+            "parent_id" => $folderIdNew,
+            "slug" => $folder->slug,
+>>>>>>> 123a
         ]);
     }
 
