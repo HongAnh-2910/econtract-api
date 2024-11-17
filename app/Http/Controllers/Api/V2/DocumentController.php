@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -91,7 +92,6 @@ class DocumentController extends Controller
                 throw new \Exception('Folder đã tồn tại');
             }
             $folder =  Folder::with(['treeChildren'])->find($formId);
-            return $folder;
             $folderCreate = $this->createFolder($folder , $toId);
             $this->treeGetFolderId($folder['id'] , $folderCreate->id);
             return  Folder::with(['treeChildren'])->find($folderCreate->id);

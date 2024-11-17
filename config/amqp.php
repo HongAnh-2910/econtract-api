@@ -2,6 +2,7 @@
 
 return [
 
+    
     /*
     |--------------------------------------------------------------------------
     | Define which configuration should be used
