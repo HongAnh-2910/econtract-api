@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -120,9 +121,16 @@ class DocumentController extends Controller
             {
                 $this->createFile($file , $toFolderId);
             }
+<<<<<<< HEAD
            return Folder::with(['treeChildren' ,'files'])
                         ->where('id' , $toFolderId)
                         ->first();
+=======
+            $folder =  Folder::with(['treeChildren'])->find($formId);
+            $folderCreate = $this->createFolder($folder , $toId);
+            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
+            return  Folder::with(['treeChildren'])->find($folderCreate->id);
+>>>>>>> 123a
         }
         foreach ($files->get() as $file)
         {
