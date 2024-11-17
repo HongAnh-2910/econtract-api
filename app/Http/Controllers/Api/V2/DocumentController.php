@@ -17,19 +17,19 @@ use Illuminate\Support\Facades\Hash;
 class DocumentController extends Controller
 {
 
-    const TYPE_FOLDER ='folder';
+    const TYPE_FOLDER = 'folder';
     const TYPE_FILE = 'file';
 
     public function index(Request $request)
     {
-        $size = $request->input('size' ,15);
+        $size = $request->input('size', 15);
         $folderId = $request->input('folder_id');
-        if ($folderId)
-        {
-            throw_if(!Folder::where('id' , $folderId)->first() ,new ModelNotFoundException('Không tồn tại folder' ,400));
-           return  $this->getDocument($folderId , $folderId , $size);
+        if ($folderId) {
+            throw_if(!Folder::where('id', $folderId)->first(), new ModelNotFoundException('Không tồn tại folder', 400));
+            return $this->getDocument($folderId, $folderId, $size);
         }
-        return $this->getDocument(null, null , $size);
+        dd(1);
+        return $this->getDocument(null, null, $size);
     }
 
     /**
@@ -40,27 +40,24 @@ class DocumentController extends Controller
      * @return array
      */
 
-    private function getDocument($parentFolderId = null, $fileByFolderId = null, $size ,  $folderId = null)
+    private function getDocument($parentFolderId = null, $fileByFolderId = null, $size, $folderId = null)
     {
-        $folders =  Folder::with(['treeChildren' ,'files']);
-        if ((is_null($parentFolderId) && is_null($folderId)) or (!empty($parentFolderId) && is_null($folderId)))
-        {
+        $folders = Folder::with(['treeChildren', 'files']);
+        if ((is_null($parentFolderId) && is_null($folderId)) or (!empty($parentFolderId) && is_null($folderId))) {
             $folders->where('parent_id', $parentFolderId);
         }
-        if (!empty($folderId))
-        {
+        if (!empty($folderId)) {
             $folders->where('id', $folderId);
         }
-        $folders   = $folders->get();
-        $files     = File::where('folder_id', $fileByFolderId)->get();
+        $folders = $folders->get();
+        $files = File::where('folder_id', $fileByFolderId)->get();
         $documents = array_merge($folders->toArray(), $files->toArray());
         $documents = collect($documents)->sortByDesc('created_at')->values()->map(function ($item) {
             $item['date'] = Carbon::parse($item['created_at'])->format('d-m-Y H:s:i');
             unset($item['created_at'], $item['updated_at']);
             return $item;
         });
-        if ($size)
-        {
+        if ($size) {
             return $documents->customerPaginate($size);
         }
 
@@ -73,7 +70,7 @@ class DocumentController extends Controller
         $toId = $request->input('to_id');
         $type = $request->input('type');
 
-//        return $folders;
+        //        return $folders;
 //        if ($type == self::TYPE_FOLDER)
 //        {
 //            return $document = $this->getDocument(null, $formId , null , $formId);
@@ -85,53 +82,48 @@ class DocumentController extends Controller
         $formId = $request->input('form_id');
         $toId = $request->input('to_id');
         $type = $request->input('type');
-        if ($type == self::TYPE_FOLDER)
-        {
-            if (Folder::where('name' , Folder::where('id' , $formId)->first()->name)->where('parent_id' , $toId)->first())
-            {
+        if ($type == self::TYPE_FOLDER) {
+            if (Folder::where('name', Folder::where('id', $formId)->first()->name)->where('parent_id', $toId)->first()) {
                 throw new \Exception('Folder đã tồn tại');
             }
-            $folder =  Folder::with(['treeChildren'])->find($formId);
-            $folderCreate = $this->createFolder($folder , $toId);
-            $this->treeGetFolderId($folder['id'] , $folderCreate->id);
-            return  Folder::with(['treeChildren'])->find($folderCreate->id);
+            $folder = Folder::with(['treeChildren'])->find($formId);
+            $folderCreate = $this->createFolder($folder, $toId);
+            $this->treeGetFolderId($folder['id'], $folderCreate->id);
+            return Folder::with(['treeChildren'])->find($folderCreate->id);
         }
     }
 
-    private function treeGetFolderId($folderIdOld , $folderIdNew)
+    private function treeGetFolderId($folderIdOld, $folderIdNew)
     {
-        $files = File::where('folder_id' , $folderIdOld)->get();
-        foreach ($files as $file)
-        {
+        $files = File::where('folder_id', $folderIdOld)->get();
+        foreach ($files as $file) {
             File::create([
                 "name" => $file->name,
-                "path" =>  $file->path,
-                "type" =>  $file->type,
+                "path" => $file->path,
+                "type" => $file->type,
                 "user_id" => Auth::id(),
                 "folder_id" => $folderIdNew,
-                "size"=> $file->size,
-                "upload_st"=> $file->upload_st,
-                "contract_id"=> $file->contract_id,
+                "size" => $file->size,
+                "upload_st" => $file->upload_st,
+                "contract_id" => $file->contract_id,
             ]);
         }
-        $folders =  Folder::with(['treeChildren'])->where('parent_id', $folderIdOld)->get();
-        if (!empty($folders))
-        {
-            foreach ($folders as $folder)
-            {
+        $folders = Folder::with(['treeChildren'])->where('parent_id', $folderIdOld)->get();
+        if (!empty($folders)) {
+            foreach ($folders as $folder) {
                 $folderCreate = $this->createFolder($folder, $folderIdNew);
-                $this->treeGetFolderId($folder['id'] , $folderCreate->id);
+                $this->treeGetFolderId($folder['id'], $folderCreate->id);
             }
         }
     }
 
-    private function createFolder($folder , $folderIdNew)
+    private function createFolder($folder, $folderIdNew)
     {
         return Folder::create([
-            "name"      => $folder->name,
-            "user_id"   => Auth::id(),
+            "name" => $folder->name,
+            "user_id" => Auth::id(),
             "parent_id" => $folderIdNew,
-            "slug"      => $folder->slug,
+            "slug" => $folder->slug,
         ]);
     }
 
